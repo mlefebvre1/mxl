@@ -30,7 +30,7 @@
 #include <mxl/flow.h>
 #include <mxl/mxl.h>
 #include <mxl/time.h>
-#include "mxl-internal/FlowParser.hpp"
+#include "mxl-internal/FlowNMOS.hpp"
 #include "mxl-internal/Logging.hpp"
 #include "mxl-internal/PathUtils.hpp"
 
@@ -364,23 +364,34 @@ namespace
         std::optional<std::string> const& audioFlowID)
     {
         std::string flow_descriptor{read_flow_descriptor(domain, flowID)};
-        mxl::lib::FlowParser descriptor_parser{flow_descriptor};
+        auto videoNmosFlow = mxl::lib::NMOSFlow::fromStr(flow_descriptor);
+        if (!videoNmosFlow.isVideo())
+        {
+            throw std::invalid_argument("Expecting a video flow from the video flow ID.");
+        }
+        auto descriptor_parser = videoNmosFlow.asVideo();
 
         std::optional<GstreamerAudioPipelineConfig> audio_config;
         if (audioFlowID)
         {
             std::string audio_flow_descriptor{read_flow_descriptor(domain, *audioFlowID)};
-            mxl::lib::FlowParser audio_descriptor_parser{audio_flow_descriptor};
+            auto audioNmosFlow = mxl::lib::NMOSFlow::fromStr(flow_descriptor);
+            if (!audioNmosFlow.isAudio())
+            {
+                throw std::invalid_argument("Expecting an audio flow from the the audio flow ID.");
+            }
+            auto audio_descriptor_parser = audioNmosFlow.asAudio();
+
             audio_config = GstreamerAudioPipelineConfig{
-                .rate = audio_descriptor_parser.getGrainRate(), .channelCount = audio_descriptor_parser.getChannelCount()};
+                .rate = audio_descriptor_parser.getSampleRate(), .channelCount = audio_descriptor_parser.getChannelCount()};
         }
         else
         {
             audio_config = std::nullopt;
         }
 
-        return GstreamerPipelineConfig{.frame_width = static_cast<uint64_t>(descriptor_parser.get<double>("frame_width")),
-            .frame_height = static_cast<uint64_t>(descriptor_parser.get<double>("frame_height")),
+        return GstreamerPipelineConfig{.frame_width = descriptor_parser.getFrameWidth(),
+            .frame_height = descriptor_parser.getFrameHeight(),
             .frame_rate = descriptor_parser.getGrainRate(),
             .audio_config = audio_config};
     }

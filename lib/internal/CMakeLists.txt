@@ -25,7 +25,6 @@ target_sources(mxl-internal
             src/FlowIoFactory.cpp
             src/FlowManager.cpp
             src/FlowNMOS.cpp
-            src/FlowParser.cpp
             src/FlowReader.cpp
             src/FlowWriter.cpp
             src/Instance.cpp

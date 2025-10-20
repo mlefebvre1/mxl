@@ -11,7 +11,6 @@
 #include <mxl/mxl.h>
 #include <mxl/time.h>
 #include "mxl-internal/FlowNMOS.hpp"
-#include "mxl-internal/FlowParser.hpp"
 #include "mxl-internal/Logging.hpp"
 
 std::sig_atomic_t volatile g_exit_requested = 0;
@@ -260,6 +259,9 @@ int main(int argc, char** argv)
     std::string flow_descriptor{std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
 
     auto nmosFlow = mxl::lib::NMOSFlow::fromStr(flow_descriptor);
+
+    MXL_INFO("Successfully deserialized NMOS JSON file");
+
     if (!nmosFlow.isVideo())
     {
         throw std::invalid_argument("only flow video is supported");
