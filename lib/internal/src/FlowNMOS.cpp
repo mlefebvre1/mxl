@@ -1,5 +1,7 @@
 #include <mxl-internal/FlowNMOS.hpp>
 #include <cstddef>
+#include <cstdint>
+#include <ranges>
 #include <stdexcept>
 #include <string_view>
 #include <uuid.h>
@@ -13,10 +15,21 @@
 
 namespace mxl::lib
 {
+    // Allows us to use the visitor pattern with lambdas
+    template<class... Ts>
+    struct overloaded : Ts...
+    {
+        using Ts::operator()...;
+    };
 
     mxlRational Rational::toMxlApi() const
     {
         return {.numerator = numerator, .denominator = denominator};
+    }
+
+    bool Rational::operator==(Rational const& rhs) const noexcept
+    {
+        return numerator == rhs.numerator && denominator == rhs.denominator;
     }
 
     Rational::Rfl Rational::Rfl::from_class(Rational const& r) noexcept
@@ -45,24 +58,147 @@ namespace mxl::lib
         return result;
     }
 
+    std::string_view NMOSCommonFlow::getDescription() const noexcept
+    {
+        return description.get();
+    }
+
     uuids::uuid NMOSCommonFlow::getId() const
     {
         return *uuids::uuid::from_string(id.get().value());
     }
 
+    std::string_view NMOSCommonFlow::getLabel() const noexcept
+    {
+        return label.get();
+    }
+
+    std::string_view NMOSCommonFlow::getMediaType() const noexcept
+    {
+        return mediaType.get();
+    }
+
+    void NMOSCommonFlow::validate() const
+    {
+        validateGroupHint();
+    }
+
+    //
+    // Validates that the group hint tag is present and valid
+    // See https://specs.amwa.tv/nmos-parameter-registers/branches/main/tags/grouphint.html
+    //
+    void NMOSCommonFlow::validateGroupHint() const
+    {
+        auto groupHints = tags.get().groupHints.get();
+
+        // we need at least a group hint
+        if (groupHints.empty())
+        {
+            std::invalid_argument("Group hint tag found but empty.");
+        }
+        else
+        {
+            // iterate over the array and confirm that all values are strings and follow the
+            // expected format.
+            // "<group-name>:<role-in-group>[:<group-scope>]" where group-scope if present, is either device or node
+            for (auto const& hint : groupHints)
+            {
+                // Get the array item
+                // Split the string into parts separated by ':'
+                auto parts = hint | std::ranges::views::split(':') |
+                             std::views::transform([&](auto&& rng) { return std::string_view(&*rng.begin(), std::ranges::distance(rng)); });
+
+                auto vec = std::vector<std::string_view>{parts.begin(), parts.end()};
+                if ((vec.size() < 2) || (vec.size() > 3))
+                {
+                    throw std::invalid_argument(
+                        fmt::format("Invalid group hint value '{}'. Expected format '<group-name>:<role-in-group>[:<group-scope>]'", hint));
+                }
+
+                // Validate the group name and role
+                auto const& groupName = vec[0];
+                auto const& role = vec[1];
+                if (groupName.empty() || role.empty())
+                {
+                    throw std::invalid_argument(fmt::format("Invalid group hint value '{}'. Group name and role must not be empty.", hint));
+                }
+
+                // Validate the group scope if present
+                if (vec.size() == 3)
+                {
+                    auto const& groupScope = vec[2];
+                    if (groupScope != "device" && groupScope != "node")
+                    {
+                        throw std::invalid_argument(
+                            fmt::format("Invalid group hint value '{}'. Group scope must be either 'device' or 'node'.", hint));
+                    }
+                }
+            }
+            // all the tags passed validation
+        }
+    }
+
+    std::string_view NMOSVideoFlow::getDescription() const noexcept
+    {
+        return common.get().getDescription();
+    }
+
+    uuids::uuid NMOSVideoFlow::getId() const
+    {
+        return common.get().getId();
+    }
+
+    std::string_view NMOSVideoFlow::getLabel() const noexcept
+    {
+        return common.get().getLabel();
+    }
+
+    std::string_view NMOSVideoFlow::getMediaType() const noexcept
+    {
+        return common.get().getMediaType();
+    }
+
     mxlRational NMOSVideoFlow::getGrainRate() const
     {
+        if (isInterlaced())
+        {
+            auto grainRateTmp = grainRate.get();
+            grainRateTmp.numerator *= 2; // In interlace, the grainRate is actually the field rate
+
+            return grainRateTmp.toMxlApi();
+        }
+
         return grainRate.get().toMxlApi();
+    }
+
+    std::uint32_t NMOSVideoFlow::getFrameWidth() const
+    {
+        return frameWidth.get().value();
+    }
+
+    std::uint32_t NMOSVideoFlow::getFrameHeight() const
+    {
+        return frameWidth.get().value();
+    }
+
+    std::string_view NMOSVideoFlow::getColorspace() const
+    {
+        return colorspace.get();
+    }
+
+    bool NMOSVideoFlow::isInterlaced() const
+    {
+        return interlaceMode.get() != "progressive";
     }
 
     std::size_t NMOSVideoFlow::getPayloadSize() const
     {
         auto payloadSize = std::size_t{0};
 
-        if (common.get().mediaType.get() == "video/v210")
+        if (getMediaType() == "video/v210")
         {
-            auto frameH = frameHeight.get().value();
-            auto frameW = frameWidth.get().value();
+            auto frameH = getFrameHeight();
+            auto frameW = getFrameWidth();
 
             if (!isInterlaced() || ((frameH % 2) == 0))
             {
@@ -72,14 +208,12 @@ namespace mxl::lib
             }
             else
             {
-                auto msg = std::string{"Invalid video height for interlaced v210. Must be even."};
-                throw std::invalid_argument{std::move(msg)};
+                throw std::invalid_argument{"Invalid video height for interlaced v210. Must be even."};
             }
         }
         else
         {
-            auto msg = std::string{"Unsupported video media_type: "} + std::string(common.get().mediaType.get());
-            throw std::invalid_argument{std::move(msg)};
+            throw std::invalid_argument{fmt::format("Unsupported video media_type: {}", getMediaType())};
         }
 
         return payloadSize;
@@ -89,35 +223,92 @@ namespace mxl::lib
     {
         // For video flows the slice length is the byte-length of a single
         // line of v210 video.
-        if (common.get().mediaType.get() != "video/v210")
+        if (getMediaType() != "video/v210")
         {
-            auto msg = std::string{"Unsupported video media_type: "} + std::string(common.get().mediaType.get());
-            throw std::invalid_argument{std::move(msg)};
+            throw std::invalid_argument{fmt::format("Unsupported video media_type: {}", getMediaType())};
         }
 
-        return static_cast<std::size_t>((frameWidth.get().value() + 47) / 48 * 128);
+        return static_cast<std::size_t>((getFrameWidth() + 47) / 48 * 128);
     }
 
     std::size_t NMOSVideoFlow::getTotalPayloadSlices() const
     {
-        if (common.get().mediaType.get() != "video/v210")
+        if (getMediaType() != "video/v210")
         {
-            auto msg = std::string{"Unsupported video media_type: "} + std::string(common.get().mediaType.get());
-            throw std::invalid_argument{std::move(msg)};
+            throw std::invalid_argument{fmt::format("Unsupported video media_type: {}", getMediaType())};
         }
 
         // For v210, the number of slices is always the number of video lines
         if (isInterlaced())
         {
-            return frameHeight.get().value() / 2;
+            return getFrameHeight() / 2;
         }
 
-        return frameHeight.get().value();
+        return getFrameHeight();
+    }
+
+    void NMOSVideoFlow::validate() const
+    {
+        common.get().validate();
+        validateGrainRate();
+    }
+
+    void NMOSVideoFlow::validateGrainRate() const
+    {
+        if ((interlaceMode.get() == "interlaced_tff") || (interlaceMode.get() == "interlaced_bff"))
+        {
+            // This is an interlaced video flow.  confirm that the grain rate is defined to 30000/1001 or 25/1
+            if ((grainRate.get() != Rational{.numerator = 30000, .denominator = 1001}) &&
+                (grainRate.get() != Rational{.numerator = 25, .denominator = 1}))
+            {
+                throw std::invalid_argument{"Invalid grain_rate for interlaced video. Expected 30000/1001 or 25/1."};
+            }
+        }
+    }
+
+    std::string_view NMOSAudioFlow::getDescription() const noexcept
+    {
+        return common.get().getDescription();
+    }
+
+    uuids::uuid NMOSAudioFlow::getId() const
+    {
+        return common.get().getId();
+    }
+
+    std::string_view NMOSAudioFlow::getLabel() const noexcept
+    {
+        return common.get().getLabel();
+    }
+
+    std::string_view NMOSAudioFlow::getMediaType() const noexcept
+    {
+        return common.get().getMediaType();
     }
 
     mxlRational NMOSAudioFlow::getSampleRate() const
     {
         return sampleRate.get().toMxlApi();
+    }
+
+    std::uint32_t NMOSAudioFlow::getChannelCount() const
+    {
+        return channelCount.get();
+    }
+
+    std::uint32_t NMOSAudioFlow::getBitDepth() const
+    {
+        return bitDepth.get();
+    }
+
+    uuids::uuid NMOSAudioFlow::getSourceId() const
+    {
+        return *uuids::uuid::from_string(sourceId.get().value());
+    }
+
+    uuids::uuid NMOSAudioFlow::getDeviceId() const
+    {
+        return *uuids::uuid::from_string(deviceId.get().value());
     }
 
     std::size_t NMOSAudioFlow::getPayloadSize() const
@@ -133,9 +324,58 @@ namespace mxl::lib
         return static_cast<std::size_t>(bitDepth.get()) / 8U;
     }
 
-    bool NMOSVideoFlow::isInterlaced() const
+    void NMOSAudioFlow::validate() const
     {
-        return interlaceMode.get() != "progressive";
+        common.get().validate();
+    }
+
+    std::string_view NMOSDataFlow::getDescription() const noexcept
+    {
+        return common.get().getDescription();
+    }
+
+    uuids::uuid NMOSDataFlow::getId() const
+    {
+        return common.get().getId();
+    }
+
+    std::string_view NMOSDataFlow::getLabel() const noexcept
+    {
+        return common.get().getLabel();
+    }
+
+    std::string_view NMOSDataFlow::getMediaType() const noexcept
+    {
+        return common.get().getMediaType();
+    }
+
+    std::size_t NMOSDataFlow::getPayloadSize() const
+    {
+        if (common.get().mediaType.get() == "video/smpte291")
+        {
+            // This is large enough to hold all the ANC data in a single grain.
+            // This size is an usual VFS page. no point at going smaller.
+            return DATA_FORMAT_GRAIN_SIZE;
+        }
+        else
+        {
+            throw std::invalid_argument{fmt::format("Unsupported  media_type: {}", common.get().mediaType.get())};
+        }
+    }
+
+    std::size_t NMOSDataFlow::getPayloadSliceLength() const
+    {
+        return 1;
+    }
+
+    std::size_t NMOSDataFlow::getTotalPayloadSlices() const
+    {
+        return DATA_FORMAT_GRAIN_SIZE;
+    }
+
+    void NMOSDataFlow::validate() const
+    {
+        common.get().validate();
     }
 
     NMOSFlow NMOSFlow::fromStr(std::string_view s)
@@ -143,7 +383,9 @@ namespace mxl::lib
         auto inner = rfl::json::read<NMOSFlow::Inner>(s);
         if (inner)
         {
-            return NMOSFlow{*inner};
+            auto nmosFlow = NMOSFlow(*inner);
+            nmosFlow.validate();
+            return nmosFlow;
         }
         else
         {
@@ -172,25 +414,38 @@ namespace mxl::lib
         return rfl::get<NMOSAudioFlow>(_inner.variant());
     }
 
+    bool NMOSFlow::isData() const noexcept
+    {
+        return rfl::holds_alternative<NMOSDataFlow>(_inner.variant());
+    }
+
+    NMOSDataFlow const& NMOSFlow::asData() const
+    {
+        return rfl::get<NMOSDataFlow>(_inner.variant());
+    }
+
     mxlDataFormat NMOSFlow::getFormat() const
     {
-        if (rfl::holds_alternative<NMOSVideoFlow>(_inner.variant()))
-        {
-            return mxlDataFormat::MXL_DATA_FORMAT_VIDEO;
-        }
-        else if (rfl::holds_alternative<NMOSAudioFlow>(_inner.variant()))
-        {
-            return mxlDataFormat::MXL_DATA_FORMAT_AUDIO;
-        }
-        else
-        {
-            // Should not be possible to end-up here
-            throw std::runtime_error("unsupported data format");
-        }
+        return rfl::visit(
+            overloaded{
+                [](NMOSVideoFlow const&) { return mxlDataFormat::MXL_DATA_FORMAT_VIDEO; },
+                [](NMOSAudioFlow const&) { return mxlDataFormat::MXL_DATA_FORMAT_AUDIO; },
+                [](NMOSDataFlow const&) { return mxlDataFormat::MXL_DATA_FORMAT_DATA; },
+
+            },
+            _inner.variant());
     }
 
     NMOSFlow::NMOSFlow(Inner inner)
         : _inner(std::move(inner))
     {}
+
+    void NMOSFlow::validate()
+    {
+        rfl::visit(overloaded{[](NMOSVideoFlow const& flow) { flow.validate(); },
+                       [](NMOSAudioFlow const& flow) { flow.validate(); },
+                       [](NMOSDataFlow const& flow) { flow.validate(); }},
+            _inner.variant());
+    }
 
 }

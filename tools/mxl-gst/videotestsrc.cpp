@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <csignal>
-#include <stdexcept>
 #include <uuid.h>
 #include <CLI/CLI.hpp>
 #include <gst/app/gstappsink.h>
@@ -269,11 +268,11 @@ int main(int argc, char** argv)
     auto nmosVideoFlow = nmosFlow.asVideo();
 
     auto frame_rate = nmosVideoFlow.getGrainRate();
-    auto flowID = nmosVideoFlow.common.get().id.get().value();
+    auto flowID = uuids::to_string(nmosVideoFlow.getId());
 
     GstreamerPipelineConfig gst_config{
-        .frame_width = nmosVideoFlow.frameWidth.get().value(),
-        .frame_height = nmosVideoFlow.frameHeight.get().value(),
+        .frame_width = nmosVideoFlow.getFrameWidth(),
+        .frame_height = nmosVideoFlow.getFrameHeight(),
         .frame_rate = frame_rate,
         .pattern = pattern_map.at(pattern),
         .textoverlay = textOverlay,
