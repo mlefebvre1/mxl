@@ -140,55 +140,55 @@ namespace mxl::lib
 
     std::string_view NMOSVideoFlow::getDescription() const noexcept
     {
-        return common.get().getDescription();
+        return _impl.common.get().getDescription();
     }
 
     uuids::uuid NMOSVideoFlow::getId() const
     {
-        return common.get().getId();
+        return _impl.common.get().getId();
     }
 
     std::string_view NMOSVideoFlow::getLabel() const noexcept
     {
-        return common.get().getLabel();
+        return _impl.common.get().getLabel();
     }
 
     std::string_view NMOSVideoFlow::getMediaType() const noexcept
     {
-        return common.get().getMediaType();
+        return _impl.common.get().getMediaType();
     }
 
     mxlRational NMOSVideoFlow::getGrainRate() const
     {
         if (isInterlaced())
         {
-            auto grainRateTmp = grainRate.get();
+            auto grainRateTmp = _impl.grainRate.get();
             grainRateTmp.numerator *= 2; // In interlace, the grainRate is actually the field rate
 
             return grainRateTmp.toMxlApi();
         }
 
-        return grainRate.get().toMxlApi();
+        return _impl.grainRate.get().toMxlApi();
     }
 
     std::uint32_t NMOSVideoFlow::getFrameWidth() const
     {
-        return frameWidth.get().value();
+        return _impl.frameWidth.get().value();
     }
 
     std::uint32_t NMOSVideoFlow::getFrameHeight() const
     {
-        return frameWidth.get().value();
+        return _impl.frameWidth.get().value();
     }
 
     std::string_view NMOSVideoFlow::getColorspace() const
     {
-        return colorspace.get();
+        return _impl.colorspace.get();
     }
 
     bool NMOSVideoFlow::isInterlaced() const
     {
-        return interlaceMode.get() != "progressive";
+        return _impl.interlaceMode.get() != "progressive";
     }
 
     std::size_t NMOSVideoFlow::getPayloadSize() const
@@ -249,17 +249,17 @@ namespace mxl::lib
 
     void NMOSVideoFlow::validate() const
     {
-        common.get().validate();
+        _impl.common.get().validate();
         validateGrainRate();
     }
 
     void NMOSVideoFlow::validateGrainRate() const
     {
-        if ((interlaceMode.get() == "interlaced_tff") || (interlaceMode.get() == "interlaced_bff"))
+        if ((_impl.interlaceMode.get() == "interlaced_tff") || (_impl.interlaceMode.get() == "interlaced_bff"))
         {
             // This is an interlaced video flow.  confirm that the grain rate is defined to 30000/1001 or 25/1
-            if ((grainRate.get() != Rational{.numerator = 30000, .denominator = 1001}) &&
-                (grainRate.get() != Rational{.numerator = 25, .denominator = 1}))
+            if ((_impl.grainRate.get() != Rational{.numerator = 30000, .denominator = 1001}) &&
+                (_impl.grainRate.get() != Rational{.numerator = 25, .denominator = 1}))
             {
                 throw std::invalid_argument{"Invalid grain_rate for interlaced video. Expected 30000/1001 or 25/1."};
             }
@@ -268,90 +268,90 @@ namespace mxl::lib
 
     std::string_view NMOSAudioFlow::getDescription() const noexcept
     {
-        return common.get().getDescription();
+        return _impl.common.get().getDescription();
     }
 
     uuids::uuid NMOSAudioFlow::getId() const
     {
-        return common.get().getId();
+        return _impl.common.get().getId();
     }
 
     std::string_view NMOSAudioFlow::getLabel() const noexcept
     {
-        return common.get().getLabel();
+        return _impl.common.get().getLabel();
     }
 
     std::string_view NMOSAudioFlow::getMediaType() const noexcept
     {
-        return common.get().getMediaType();
+        return _impl.common.get().getMediaType();
     }
 
     mxlRational NMOSAudioFlow::getSampleRate() const
     {
-        return sampleRate.get().toMxlApi();
+        return _impl.sampleRate.get().toMxlApi();
     }
 
     std::uint32_t NMOSAudioFlow::getChannelCount() const
     {
-        return channelCount.get();
+        return _impl.channelCount.get();
     }
 
     std::uint32_t NMOSAudioFlow::getBitDepth() const
     {
-        return bitDepth.get();
+        return _impl.bitDepth.get();
     }
 
     uuids::uuid NMOSAudioFlow::getSourceId() const
     {
-        return *uuids::uuid::from_string(sourceId.get().value());
+        return *uuids::uuid::from_string(_impl.sourceId.get().value());
     }
 
     uuids::uuid NMOSAudioFlow::getDeviceId() const
     {
-        return *uuids::uuid::from_string(deviceId.get().value());
+        return *uuids::uuid::from_string(_impl.deviceId.get().value());
     }
 
     std::size_t NMOSAudioFlow::getPayloadSize() const
     {
         // TODO: Also check the media type once we agreed on how to encode
         //      single precision IEEE floats.
-        if ((bitDepth.get() != 32.0) && (bitDepth.get() != 64.0))
+        if ((_impl.bitDepth.get() != 32.0) && (_impl.bitDepth.get() != 64.0))
         {
-            auto msg = fmt::format("Unsupported bit depth: {}", bitDepth.get());
+            auto msg = fmt::format("Unsupported bit depth: {}", _impl.bitDepth.get());
             throw std::invalid_argument{std::move(msg)};
         }
 
-        return static_cast<std::size_t>(bitDepth.get()) / 8U;
+        return static_cast<std::size_t>(_impl.bitDepth.get()) / 8U;
     }
 
     void NMOSAudioFlow::validate() const
     {
-        common.get().validate();
+        _impl.common.get().validate();
     }
 
     std::string_view NMOSDataFlow::getDescription() const noexcept
     {
-        return common.get().getDescription();
+        return _impl.common.get().getDescription();
     }
 
     uuids::uuid NMOSDataFlow::getId() const
     {
-        return common.get().getId();
+        return _impl.common.get().getId();
     }
 
     std::string_view NMOSDataFlow::getLabel() const noexcept
     {
-        return common.get().getLabel();
+        return _impl.common.get().getLabel();
     }
 
     std::string_view NMOSDataFlow::getMediaType() const noexcept
     {
-        return common.get().getMediaType();
+        return _impl.common.get().getMediaType();
     }
 
     std::size_t NMOSDataFlow::getPayloadSize() const
     {
-        if (common.get().mediaType.get() == "video/smpte291")
+        if (_impl.common.get().mediaType.get() == "video/smpte291")
         {
             // This is large enough to hold all the ANC data in a single grain.
             // This size is an usual VFS page. no point at going smaller.
@@ -359,7 +359,7 @@ namespace mxl::lib
         }
         else
         {
-            throw std::invalid_argument{fmt::format("Unsupported  media_type: {}", common.get().mediaType.get())};
+            throw std::invalid_argument{fmt::format("Unsupported  media_type: {}", _impl.common.get().mediaType.get())};
         }
     }
 
@@ -375,7 +375,7 @@ namespace mxl::lib
 
     void NMOSDataFlow::validate() const
     {
-        common.get().validate();
+        _impl.common.get().validate();
     }
 
     NMOSFlow NMOSFlow::fromStr(std::string_view s)

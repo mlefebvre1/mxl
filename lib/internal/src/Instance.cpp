@@ -239,7 +239,7 @@ namespace mxl::lib
             // Compute the grain count based on our configured history duration
             auto const grainCount = _historyDuration * grainRate.numerator / (1'000'000'000ULL * grainRate.denominator);
 
-            return _flowManager.createDiscreteFlow(videoParser.common.get().getId(),
+            return _flowManager.createDiscreteFlow(videoParser.getId(),
                 flowDef,
                 parser.getFormat(),
                 grainCount,
@@ -263,13 +263,8 @@ namespace mxl::lib
 
             auto const pageAlignedLength = ((bufferLength + lengthPerPage - 1U) / lengthPerPage) * lengthPerPage;
 
-            return _flowManager.createContinuousFlow(audioParser.common.get().getId(),
-                flowDef,
-                parser.getFormat(),
-                sampleRate,
-                audioParser.channelCount.get(),
-                sampleWordSize,
-                pageAlignedLength);
+            return _flowManager.createContinuousFlow(
+                audioParser.getId(), flowDef, parser.getFormat(), sampleRate, audioParser.getChannelCount(), sampleWordSize, pageAlignedLength);
         }
         throw std::runtime_error("Unsupported flow format.");
     }

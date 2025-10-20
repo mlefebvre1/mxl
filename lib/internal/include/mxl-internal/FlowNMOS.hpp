@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <rfl.hpp>
 #include <uuid.h>
 #include <rfl/Flatten.hpp>
@@ -77,7 +78,7 @@ namespace mxl::lib
         rfl::Rename<"media_type", std::string> mediaType;
 
     private:
-        friend struct NMOSVideoFlow;
+        friend class NMOSVideoFlow;
         friend struct NMOSAudioFlow;
         friend struct NMOSDataFlow;
 
@@ -86,12 +87,36 @@ namespace mxl::lib
         void validateGroupHint() const;
     };
 
-    struct NMOSVideoFlow
+    class NMOSVideoFlow
     {
-    public:
-        using Tag = rfl::Literal<"urn:x-nmos:format:video">;
-        using MaxFrameWidth = rfl::Validator<std::uint32_t, rfl::Maximum<MAX_VIDEO_FRAME_WIDTH>>;
-        using MaxFrameHeight = rfl::Validator<std::uint32_t, rfl::Maximum<MAX_VIDEO_FRAME_HEIGHT>>;
+    public: // for reflection
+        struct Impl
+        {
+        public:
+            using Tag = rfl::Literal<"urn:x-nmos:format:video">;
+            using MaxFrameWidth = rfl::Validator<std::uint32_t, rfl::Maximum<MAX_VIDEO_FRAME_WIDTH>>;
+            using MaxFrameHeight = rfl::Validator<std::uint32_t, rfl::Maximum<MAX_VIDEO_FRAME_HEIGHT>>;
+
+        public:
+            rfl::Flatten<NMOSCommonFlow> common;
+            rfl::Rename<"grain_rate", Rational> grainRate;
+            rfl::Rename<"frame_width", MaxFrameWidth> frameWidth;
+            rfl::Rename<"frame_height", MaxFrameHeight> frameHeight;
+            rfl::Rename<"interlace_mode", rfl::Literal<"interlaced_tff", "interlaced_bff", "progressive">> interlaceMode;
+            rfl::Rename<"colorspace", std::string> colorspace;
+        };
+
+        using ReflectionType = Impl;
+
+        NMOSVideoFlow(Impl impl)
+            : _impl(std::move(impl))
+        {}
+
+        [[nodiscard]]
+        ReflectionType const& reflection() const
+        {
+            return _impl;
+        }
 
     public:
         [[nodiscard]]
@@ -145,15 +170,10 @@ namespace mxl::lib
         [[nodiscard]]
         std::size_t getTotalPayloadSlices() const;
 
-    public:
-        rfl::Flatten<NMOSCommonFlow> common;
-        rfl::Rename<"grain_rate", Rational> grainRate;
-        rfl::Rename<"frame_width", MaxFrameWidth> frameWidth;
-        rfl::Rename<"frame_height", MaxFrameHeight> frameHeight;
-        rfl::Rename<"interlace_mode", rfl::Literal<"interlaced_tff", "interlaced_bff", "progressive">> interlaceMode;
-        rfl::Rename<"colorspace", std::string> colorspace;
-
         void validate() const;
+
+    private:
+        Impl _impl;
 
     private:
         void validateGrainRate() const;
@@ -161,8 +181,32 @@ namespace mxl::lib
 
     struct NMOSAudioFlow
     {
-    public:
-        using Tag = rfl::Literal<"urn:x-nmos:format:audio">;
+    public: // reflection
+        struct Impl
+        {
+        public:
+            using Tag = rfl::Literal<"urn:x-nmos:format:audio">;
+
+        public:
+            rfl::Flatten<NMOSCommonFlow> common;
+            rfl::Rename<"sample_rate", Rational> sampleRate;
+            rfl::Rename<"channel_count", std::uint32_t> channelCount;
+            rfl::Rename<"bit_depth", std::uint32_t> bitDepth;
+            rfl::Rename<"source_id", rfl::UUIDv4> sourceId;
+            rfl::Rename<"device_id", rfl::UUIDv4> deviceId;
+        };
+
+        using ReflectionType = Impl;
+
+        NMOSAudioFlow(Impl impl)
+            : _impl(std::move(impl))
+        {}
+
+        [[nodiscard]]
+        ReflectionType const& reflection() const
+        {
+            return _impl;
+        }
 
     public:
         [[nodiscard]]
@@ -204,23 +248,35 @@ namespace mxl::lib
         [[nodiscard]]
         std::size_t getPayloadSize() const;
 
-    public:
-        rfl::Flatten<NMOSCommonFlow> common;
-        rfl::Rename<"sample_rate", Rational> sampleRate;
-        rfl::Rename<"channel_count", std::uint32_t> channelCount;
-        rfl::Rename<"bit_depth", std::uint32_t> bitDepth;
-        rfl::Rename<"source_id", rfl::UUIDv4> sourceId;
-        rfl::Rename<"device_id", rfl::UUIDv4> deviceId;
-
         void validate() const;
 
     private:
+        Impl _impl;
     };
 
     struct NMOSDataFlow
     {
-    public:
-        using Tag = rfl::Literal<"urn:x-nmos:format:data">;
+    public: // reflection
+        struct Impl
+        {
+        public:
+            using Tag = rfl::Literal<"urn:x-nmos:format:data">;
+
+        public:
+            rfl::Flatten<NMOSCommonFlow> common;
+        };
+
+        using ReflectionType = Impl;
+
+        NMOSDataFlow(Impl impl)
+            : _impl(std::move(impl))
+        {}
+
+        [[nodiscard]]
+        ReflectionType const& reflection() const
+        {
+            return _impl;
+        }
 
     public:
         [[nodiscard]]
@@ -256,11 +312,10 @@ namespace mxl::lib
         std::size_t getTotalPayloadSlices() const;
 
     public:
-        rfl::Flatten<NMOSCommonFlow> common;
-
         void validate() const;
 
     private:
+        Impl _impl;
     };
 
     class NMOSFlow
