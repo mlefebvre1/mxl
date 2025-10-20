@@ -24,6 +24,7 @@ target_sources(mxl-internal
             src/FlowData.cpp
             src/FlowIoFactory.cpp
             src/FlowManager.cpp
+            src/FlowNMOS.cpp
             src/FlowParser.cpp
             src/FlowReader.cpp
             src/FlowWriter.cpp
@@ -58,6 +59,10 @@ if (NOT TARGET picojson::picojson)
     find_package(picojson REQUIRED)
 endif()
 
+if (NOT TARGET reflectcpp::reflectcpp)
+  find_package(reflectcpp REQUIRED)
+endif()
+
 target_include_directories(mxl-internal
         PUBLIC
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -69,6 +74,7 @@ target_link_libraries(mxl-internal
             spdlog::spdlog
             fmt::fmt
             picojson::picojson
+            reflectcpp::reflectcpp
     )
 
 add_subdirectory(tests)

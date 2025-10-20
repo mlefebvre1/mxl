@@ -26,7 +26,7 @@
 #include <mxl/time.h>
 #include "mxl-internal/DomainWatcher.hpp"
 #include "mxl-internal/FlowManager.hpp"
-#include "mxl-internal/FlowParser.hpp"
+#include "mxl-internal/FlowNMOS.hpp"
 #include "mxl-internal/Logging.hpp"
 #include "mxl-internal/PathUtils.hpp"
 
@@ -227,40 +227,49 @@ namespace mxl::lib
     std::unique_ptr<FlowData> Instance::createFlow(std::string const& flowDef)
     {
         // Parse the json flow resource
-        auto const parser = FlowParser{flowDef};
+        auto const parser = NMOSFlow::fromStr(flowDef);
 
         // Create the flow using the flow manager
-        if (auto const format = parser.getFormat(); mxlIsDiscreteDataFormat(format))
+        if (parser.isVideo())
         {
+            auto videoParser = parser.asVideo();
+
             // Read the mandatory grain_rate field
-            auto const grainRate = parser.getGrainRate();
+            auto const grainRate = videoParser.getGrainRate();
             // Compute the grain count based on our configured history duration
             auto const grainCount = _historyDuration * grainRate.numerator / (1'000'000'000ULL * grainRate.denominator);
 
-            return _flowManager.createDiscreteFlow(parser.getId(),
+            return _flowManager.createDiscreteFlow(videoParser.common.get().getId(),
                 flowDef,
                 parser.getFormat(),
                 grainCount,
                 grainRate,
-                parser.getPayloadSize(),
-                parser.getTotalPayloadSlices(),
-                parser.getPayloadSliceLength());
+                videoParser.getPayloadSize(),
+                videoParser.getTotalPayloadSlices(),
+                videoParser.getPayloadSliceLength());
         }
-        else if (mxlIsContinuousDataFormat(format))
+        else if (parser.isAudio())
         {
+            auto audioParser = parser.asAudio();
+
             // Read the mandatory grain_rate field
-            auto const sampleRate = parser.getGrainRate();
+            auto const sampleRate = audioParser.getSampleRate();
             // Compute the grain count based on our configured history duration
             auto const bufferLength = _historyDuration * sampleRate.numerator / (1'000'000'000ULL * sampleRate.denominator);
 
-            auto const sampleWordSize = parser.getPayloadSize();
+            auto const sampleWordSize = audioParser.getPayloadSize(); // TODO:
             // FIXME: The page size is just an educated guess to round to for good measure
             auto const lengthPerPage = 4096U / sampleWordSize;
 
             auto const pageAlignedLength = ((bufferLength + lengthPerPage - 1U) / lengthPerPage) * lengthPerPage;
 
-            return _flowManager.createContinuousFlow(
-                parser.getId(), flowDef, parser.getFormat(), sampleRate, parser.getChannelCount(), sampleWordSize, pageAlignedLength);
+            return _flowManager.createContinuousFlow(audioParser.common.get().getId(),
+                flowDef,
+                parser.getFormat(),
+                sampleRate,
+                audioParser.channelCount.get(),
+                sampleWordSize,
+                pageAlignedLength);
         }
         throw std::runtime_error("Unsupported flow format.");
     }

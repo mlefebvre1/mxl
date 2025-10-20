@@ -2,13 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <csignal>
+#include <stdexcept>
 #include <uuid.h>
 #include <CLI/CLI.hpp>
 #include <gst/app/gstappsink.h>
 #include <gst/gst.h>
+#include <rfl/json.hpp>
 #include <mxl/flow.h>
 #include <mxl/mxl.h>
 #include <mxl/time.h>
+#include "mxl-internal/FlowNMOS.hpp"
 #include "mxl-internal/FlowParser.hpp"
 #include "mxl-internal/Logging.hpp"
 
@@ -254,15 +257,23 @@ int main(int argc, char** argv)
         MXL_ERROR("Failed to open file: '{}'", flowConfigFile);
         return EXIT_FAILURE;
     }
-    std::string flow_descriptor{std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
-    mxl::lib::FlowParser descriptor_parser{flow_descriptor};
 
-    auto frame_rate = descriptor_parser.getGrainRate();
-    auto flowID = uuids::to_string(descriptor_parser.getId());
+    std::string flow_descriptor{std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
+
+    auto nmosFlow = mxl::lib::NMOSFlow::fromStr(flow_descriptor);
+    if (!nmosFlow.isVideo())
+    {
+        throw std::invalid_argument("only flow video is supported");
+    }
+
+    auto nmosVideoFlow = nmosFlow.asVideo();
+
+    auto frame_rate = nmosVideoFlow.getGrainRate();
+    auto flowID = nmosVideoFlow.common.get().id.get().value();
 
     GstreamerPipelineConfig gst_config{
-        .frame_width = static_cast<uint64_t>(descriptor_parser.get<double>("frame_width")),
-        .frame_height = static_cast<uint64_t>(descriptor_parser.get<double>("frame_height")),
+        .frame_width = nmosVideoFlow.frameWidth.get().value(),
+        .frame_height = nmosVideoFlow.frameHeight.get().value(),
         .frame_rate = frame_rate,
         .pattern = pattern_map.at(pattern),
         .textoverlay = textOverlay,
