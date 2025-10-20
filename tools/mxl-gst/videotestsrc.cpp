@@ -7,6 +7,7 @@
 #include <gst/app/gstappsink.h>
 #include <gst/gst.h>
 #include <rfl/json.hpp>
+#include <rfl/TaggedUnion.hpp>
 #include <mxl/flow.h>
 #include <mxl/mxl.h>
 #include <mxl/time.h>
@@ -261,11 +262,12 @@ int main(int argc, char** argv)
     auto nmosFlow = mxl::lib::NMOSFlow::fromStr(flow_descriptor);
 
     MXL_INFO("Successfully deserialized NMOS JSON file");
-
     if (!nmosFlow.isVideo())
     {
         throw std::invalid_argument("only flow video is supported");
     }
+
+    MXL_INFO("{}", nmosFlow.toJson());
 
     auto nmosVideoFlow = nmosFlow.asVideo();
 

@@ -3,7 +3,6 @@
 
 #include <cstdint>
 #include <cstdlib>
-#include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -16,10 +15,10 @@
 #include <fmt/color.h>
 #include <fmt/format.h>
 #include <gsl/span>
-#include <picojson/picojson.h>
 #include <mxl/flow.h>
 #include <mxl/mxl.h>
 #include <mxl/time.h>
+#include "mxl-internal/FlowNMOS.hpp"
 #include "mxl-internal/PathUtils.hpp"
 
 namespace
@@ -147,39 +146,9 @@ void getFlowDetails(std::filesystem::path const& descPath, std::string& label, s
     auto const content = std::string((std::istreambuf_iterator<char>(descFile)), std::istreambuf_iterator<char>());
     descFile.close();
 
-    auto v = picojson::value{};
-    std::string err = picojson::parse(v, content);
-    if (!err.empty())
-    {
-        return;
-    }
-
-    auto const& obj = v.get<picojson::object>();
-    auto const flowTypeIt = obj.find("label");
-    if ((flowTypeIt == obj.end()) || !flowTypeIt->second.is<std::string>())
-    {
-        return;
-    }
-    else
-    {
-        label = flowTypeIt->second.get<std::string>();
-    }
-
-    // try to get the group hint tag
-    auto const tagsIt = obj.find("tags");
-    if ((tagsIt != obj.end()) && tagsIt->second.is<picojson::object>())
-    {
-        auto const& tagsObj = tagsIt->second.get<picojson::object>();
-        auto const groupHintIt = tagsObj.find("urn:x-nmos:tag:grouphint/v1.0");
-        if ((groupHintIt != tagsObj.end()) && groupHintIt->second.is<picojson::array>())
-        {
-            auto const& groupHintArray = groupHintIt->second.get<picojson::array>();
-            if (!groupHintArray.empty() && groupHintArray[0].is<std::string>())
-            {
-                groupHint = groupHintArray[0].get<std::string>();
-            }
-        }
-    }
+    auto v = mxl::lib::NMOSFlow::fromStr(content);
+    label = v.getLabel();
+    groupHint = v.getGroupHints()[0];
 }
 
 int listAllFlows(std::string const& in_domain)

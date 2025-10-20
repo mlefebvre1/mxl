@@ -25,6 +25,7 @@ target_sources(mxl-internal
             src/FlowIoFactory.cpp
             src/FlowManager.cpp
             src/FlowNMOS.cpp
+            src/FlowOptions.cpp
             src/FlowReader.cpp
             src/FlowWriter.cpp
             src/Instance.cpp
@@ -54,10 +55,6 @@ if (NOT TARGET fmt::fmt)
     find_package(fmt CONFIG REQUIRED)
 endif()
 
-if (NOT TARGET picojson::picojson)
-    find_package(picojson REQUIRED)
-endif()
-
 if (NOT TARGET reflectcpp::reflectcpp)
   find_package(reflectcpp REQUIRED)
 endif()
@@ -72,7 +69,6 @@ target_link_libraries(mxl-internal
             stduuid
             spdlog::spdlog
             fmt::fmt
-            picojson::picojson
             reflectcpp::reflectcpp
     )
 

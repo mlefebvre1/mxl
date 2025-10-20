@@ -4,14 +4,8 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
-#include <utility>
 #include <rfl.hpp>
 #include <uuid.h>
-#include <rfl/Flatten.hpp>
-#include <rfl/json.hpp>
-#include <rfl/OneOf.hpp>
-#include <rfl/Rename.hpp>
-#include <rfl/Validator.hpp>
 #include "mxl/dataformat.h"
 #include "mxl/rational.h"
 
@@ -29,7 +23,8 @@ namespace mxl::lib
     {
     public:
         [[nodiscard]]
-        mxlRational toMxlApi() const;
+        mxlRational toMxl() const noexcept;
+        static Rational fromMxl(mxlRational mxl) noexcept;
 
         bool operator==(Rational const& rhs) const noexcept;
 
@@ -70,6 +65,9 @@ namespace mxl::lib
         [[nodiscard]]
         std::string_view getMediaType() const noexcept;
 
+        [[nodiscard]]
+        std::vector<std::string> const& getGroupHints() const noexcept;
+
     public:
         rfl::Rename<"description", std::string> description;
         rfl::Rename<"id", rfl::UUIDv4> id;
@@ -78,7 +76,7 @@ namespace mxl::lib
         rfl::Rename<"media_type", std::string> mediaType;
 
     private:
-        friend class NMOSVideoFlow;
+        friend struct NMOSVideoFlow;
         friend struct NMOSAudioFlow;
         friend struct NMOSDataFlow;
 
@@ -87,36 +85,23 @@ namespace mxl::lib
         void validateGroupHint() const;
     };
 
-    class NMOSVideoFlow
+    struct NMOSVideoFlow
     {
-    public: // for reflection
-        struct Impl
-        {
-        public:
-            using Tag = rfl::Literal<"urn:x-nmos:format:video">;
-            using MaxFrameWidth = rfl::Validator<std::uint32_t, rfl::Maximum<MAX_VIDEO_FRAME_WIDTH>>;
-            using MaxFrameHeight = rfl::Validator<std::uint32_t, rfl::Maximum<MAX_VIDEO_FRAME_HEIGHT>>;
+    public:
+        using MaxFrameWidth = rfl::Validator<std::uint32_t, rfl::Maximum<MAX_VIDEO_FRAME_WIDTH>>;
+        using MaxFrameHeight = rfl::Validator<std::uint32_t, rfl::Maximum<MAX_VIDEO_FRAME_HEIGHT>>;
 
-        public:
-            rfl::Flatten<NMOSCommonFlow> common;
-            rfl::Rename<"grain_rate", Rational> grainRate;
-            rfl::Rename<"frame_width", MaxFrameWidth> frameWidth;
-            rfl::Rename<"frame_height", MaxFrameHeight> frameHeight;
-            rfl::Rename<"interlace_mode", rfl::Literal<"interlaced_tff", "interlaced_bff", "progressive">> interlaceMode;
-            rfl::Rename<"colorspace", std::string> colorspace;
+    public:
+        struct Component
+        {
+            rfl::Rename<"name", std::string> name;
+            rfl::Rename<"width", MaxFrameWidth> width;
+            rfl::Rename<"height", MaxFrameHeight> height;
+            rfl::Rename<"bit_depth", std::uint32_t> bit_depth;
         };
 
-        using ReflectionType = Impl;
-
-        NMOSVideoFlow(Impl impl)
-            : _impl(std::move(impl))
-        {}
-
-        [[nodiscard]]
-        ReflectionType const& reflection() const
-        {
-            return _impl;
-        }
+    public:
+        using Tag = rfl::Literal<"urn:x-nmos:format:video">;
 
     public:
         [[nodiscard]]
@@ -131,24 +116,26 @@ namespace mxl::lib
         [[nodiscard]]
         std::string_view getMediaType() const noexcept;
 
+        [[nodiscard]]
+        std::vector<std::string> const& getGroupHints() const noexcept;
         /**
          * Accessor for the 'grain_rate' field
          * \return The grain rate if found and valid.
          */
         [[nodiscard]]
-        mxlRational getGrainRate() const;
+        mxlRational getGrainRate() const noexcept;
 
         [[nodiscard]]
-        std::uint32_t getFrameWidth() const;
+        std::uint32_t getFrameWidth() const noexcept;
 
         [[nodiscard]]
-        std::uint32_t getFrameHeight() const;
+        std::uint32_t getFrameHeight() const noexcept;
 
         [[nodiscard]]
-        std::string_view getColorspace() const;
+        std::string_view getColorspace() const noexcept;
 
         [[nodiscard]]
-        bool isInterlaced() const;
+        bool isInterlaced() const noexcept;
         /**
          * Computes the grain payload size
          * \return The payload size
@@ -172,8 +159,13 @@ namespace mxl::lib
 
         void validate() const;
 
-    private:
-        Impl _impl;
+        rfl::Flatten<NMOSCommonFlow> common;
+        rfl::Rename<"grain_rate", Rational> grainRate;
+        rfl::Rename<"frame_width", MaxFrameWidth> frameWidth;
+        rfl::Rename<"frame_height", MaxFrameHeight> frameHeight;
+        rfl::Rename<"interlace_mode", rfl::Literal<"interlaced_tff", "interlaced_bff", "progressive">> interlaceMode;
+        rfl::Rename<"colorspace", std::string> colorspace;
+        rfl::Rename<"components", std::vector<Component>> components;
 
     private:
         void validateGrainRate() const;
@@ -181,32 +173,8 @@ namespace mxl::lib
 
     struct NMOSAudioFlow
     {
-    public: // reflection
-        struct Impl
-        {
-        public:
-            using Tag = rfl::Literal<"urn:x-nmos:format:audio">;
-
-        public:
-            rfl::Flatten<NMOSCommonFlow> common;
-            rfl::Rename<"sample_rate", Rational> sampleRate;
-            rfl::Rename<"channel_count", std::uint32_t> channelCount;
-            rfl::Rename<"bit_depth", std::uint32_t> bitDepth;
-            rfl::Rename<"source_id", rfl::UUIDv4> sourceId;
-            rfl::Rename<"device_id", rfl::UUIDv4> deviceId;
-        };
-
-        using ReflectionType = Impl;
-
-        NMOSAudioFlow(Impl impl)
-            : _impl(std::move(impl))
-        {}
-
-        [[nodiscard]]
-        ReflectionType const& reflection() const
-        {
-            return _impl;
-        }
+    public:
+        using Tag = rfl::Literal<"urn:x-nmos:format:audio">;
 
     public:
         [[nodiscard]]
@@ -221,18 +189,20 @@ namespace mxl::lib
         [[nodiscard]]
         std::string_view getMediaType() const noexcept;
 
+        [[nodiscard]]
+        std::vector<std::string> const& getGroupHints() const noexcept;
         /**
          * Accessor for the 'sample_rate' field
          * \return The sample rate if found and valid.
          */
         [[nodiscard]]
-        mxlRational getSampleRate() const;
+        mxlRational getSampleRate() const noexcept;
 
         [[nodiscard]]
-        std::uint32_t getChannelCount() const;
+        std::uint32_t getChannelCount() const noexcept;
 
         [[nodiscard]]
-        std::uint32_t getBitDepth() const;
+        std::uint32_t getBitDepth() const noexcept;
 
         [[nodiscard]]
         uuids::uuid getSourceId() const;
@@ -250,33 +220,19 @@ namespace mxl::lib
 
         void validate() const;
 
-    private:
-        Impl _impl;
+    public:
+        rfl::Flatten<NMOSCommonFlow> common;
+        rfl::Rename<"sample_rate", Rational> sampleRate;
+        rfl::Rename<"channel_count", std::uint32_t> channelCount;
+        rfl::Rename<"bit_depth", std::uint32_t> bitDepth;
+        rfl::Rename<"source_id", rfl::UUIDv4> sourceId;
+        rfl::Rename<"device_id", rfl::UUIDv4> deviceId;
     };
 
     struct NMOSDataFlow
     {
-    public: // reflection
-        struct Impl
-        {
-        public:
-            using Tag = rfl::Literal<"urn:x-nmos:format:data">;
-
-        public:
-            rfl::Flatten<NMOSCommonFlow> common;
-        };
-
-        using ReflectionType = Impl;
-
-        NMOSDataFlow(Impl impl)
-            : _impl(std::move(impl))
-        {}
-
-        [[nodiscard]]
-        ReflectionType const& reflection() const
-        {
-            return _impl;
-        }
+    public:
+        using Tag = rfl::Literal<"urn:x-nmos:format:data">;
 
     public:
         [[nodiscard]]
@@ -290,6 +246,16 @@ namespace mxl::lib
 
         [[nodiscard]]
         std::string_view getMediaType() const noexcept;
+
+        [[nodiscard]]
+        std::vector<std::string> const& getGroupHints() const noexcept;
+
+        /**
+         * Accessor for the 'grain_rate' field
+         * \return The grain rate if found and valid.
+         */
+        [[nodiscard]]
+        mxlRational getGrainRate() const noexcept;
 
         /**
          * Computes the grain payload size
@@ -314,14 +280,36 @@ namespace mxl::lib
     public:
         void validate() const;
 
-    private:
-        Impl _impl;
+    public:
+        rfl::Flatten<NMOSCommonFlow> common;
+        rfl::Rename<"grain_rate", Rational> grainRate;
     };
 
     class NMOSFlow
     {
     public:
         static NMOSFlow fromStr(std::string_view s);
+        static NMOSFlow fromVideo(NMOSVideoFlow flow);
+        static NMOSFlow fromAudio(NMOSAudioFlow flow);
+        static NMOSFlow fromData(NMOSDataFlow flow);
+
+        [[nodiscard]]
+        std::string toJson() const;
+
+        [[nodiscard]]
+        std::string_view getDescription() const noexcept;
+
+        [[nodiscard]]
+        uuids::uuid getId() const;
+
+        [[nodiscard]]
+        std::string_view getLabel() const noexcept;
+
+        [[nodiscard]]
+        std::string_view getMediaType() const noexcept;
+
+        [[nodiscard]]
+        std::vector<std::string> getGroupHints() const noexcept;
 
         [[nodiscard]]
         bool isVideo() const noexcept;
@@ -344,9 +332,9 @@ namespace mxl::lib
         [[nodiscard]]
         mxlDataFormat getFormat() const;
 
+    private:
         using Inner = rfl::TaggedUnion<"format", NMOSVideoFlow, NMOSAudioFlow, NMOSDataFlow>;
 
-    private:
         NMOSFlow(Inner);
 
         void validate();

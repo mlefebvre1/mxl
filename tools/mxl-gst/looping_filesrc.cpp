@@ -1,22 +1,23 @@
 // SPDX-FileCopyrightText: 2025 Contributors to the Media eXchange Layer project.
 // SPDX-License-Identifier: Apache-2.0
 
-#include <climits>
 #include <csignal>
 #include <atomic>
 #include <filesystem>
 #include <memory>
 #include <thread>
+#include <rfl.hpp>
 #include <uuid.h>
 #include <CLI/CLI.hpp>
 #include <gst/app/gstappsink.h>
 #include <gst/gst.h>
-#include <picojson/picojson.h>
+#include <rfl/json.hpp>
 #include <spdlog/cfg/env.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <mxl/flow.h>
 #include <mxl/mxl.h>
 #include <mxl/time.h>
+#include "mxl-internal/FlowNMOS.hpp"
 #include "mxl-internal/Logging.hpp"
 
 namespace fs = std::filesystem;
@@ -296,52 +297,30 @@ private:
     static uuids::uuid createVideoFlowJson(std::string const& in_uri, int in_width, int in_height, mxlRational in_rate, bool in_progressive,
         std::string const& in_colorspace, std::string& out_flowDef)
     {
-        auto root = picojson::object{};
         auto label = std::string{"Video flow for "} + in_uri;
-        root["description"] = picojson::value(label);
-
         auto id = uuids::uuid_system_generator{}();
-        root["id"] = picojson::value(uuids::to_string(id));
-        root["tags"] = picojson::value(picojson::object());
-        root["format"] = picojson::value("urn:x-nmos:format:video");
-        root["label"] = picojson::value(label);
-        root["parents"] = picojson::value(picojson::array());
-        root["media_type"] = picojson::value("video/v210");
 
-        auto tags = picojson::object{};
-        auto groupHint = picojson::array{};
-        groupHint.emplace_back(picojson::value{"Looping Source:Video"});
-        tags["urn:x-nmos:tag:grouphint/v1.0"] = picojson::value(groupHint);
-        root["tags"] = picojson::value(tags);
+        auto nmosflow = mxl::lib::NMOSFlow::fromVideo(mxl::lib::NMOSVideoFlow{
+            mxl::lib::NMOSCommonFlow{
+                                     .description = label,
+                                     .id = uuids::to_string(id),
+                                     .tags = mxl::lib::NMOSCommonFlow::NMOSTags{.groupHints = {}},
+                                     .label = label,
+                                     .mediaType = "video/v210",
+                                     },
+            mxl::lib::Rational::fromMxl(in_rate),
+            in_width,
+            in_height,
+            in_progressive ? std::string("progressive") : std::string("interlaced_tff"),
+            in_colorspace,
+            std::vector<mxl::lib::NMOSVideoFlow::Component>{
+                                     mxl::lib::NMOSVideoFlow::Component{"Y", in_width, in_height, 10},
+                                     mxl::lib::NMOSVideoFlow::Component{"Cb", in_width / 2, in_height, 10},
+                                     mxl::lib::NMOSVideoFlow::Component{"Cr", in_width / 2, in_height, 10},
+                                     }
+        });
 
-        auto grain_rate = picojson::object{};
-        grain_rate["numerator"] = picojson::value(static_cast<double>(in_rate.numerator));
-        grain_rate["denominator"] = picojson::value(static_cast<double>(in_rate.denominator));
-        root["grain_rate"] = picojson::value(grain_rate);
-
-        root["frame_width"] = picojson::value(static_cast<double>(in_width));
-        root["frame_height"] = picojson::value(static_cast<double>(in_height));
-        root["interlace_mode"] = picojson::value(in_progressive ? "progressive" : "interlaced_tff"); // todo. handle bff.
-        root["colorspace"] = picojson::value(in_colorspace);
-
-        auto components = picojson::array{};
-        auto add_component = [&](std::string const& name, int w, int h)
-        {
-            auto comp = picojson::object{};
-            comp["name"] = picojson::value(name);
-            comp["width"] = picojson::value(static_cast<double>(w));
-            comp["height"] = picojson::value(static_cast<double>(h));
-            comp["bit_depth"] = picojson::value(10.0);
-            components.emplace_back(comp);
-        };
-
-        add_component("Y", in_width, in_height);
-        add_component("Cb", in_width / 2, in_height);
-        add_component("Cr", in_width / 2, in_height);
-
-        root["components"] = picojson::value(components);
-
-        out_flowDef = picojson::value(root).serialize(true);
+        out_flowDef = nmosflow.toJson();
         return id;
     }
 
