@@ -17,7 +17,7 @@
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <picojson/picojson.h>
+#include <rfl/json/read.hpp>
 #include <spdlog/cfg/env.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
@@ -26,7 +26,8 @@
 #include <mxl/time.h>
 #include "mxl-internal/DomainWatcher.hpp"
 #include "mxl-internal/FlowManager.hpp"
-#include "mxl-internal/FlowParser.hpp"
+#include "mxl-internal/FlowNMOS.hpp"
+#include "mxl-internal/FlowOptions.hpp"
 #include "mxl-internal/Logging.hpp"
 #include "mxl-internal/PathUtils.hpp"
 
@@ -34,7 +35,6 @@ namespace mxl::lib
 {
     namespace
     {
-        constexpr auto MXL_HISTORY_DURATION_OPTION = "urn:x-mxl:option:history_duration/v1.0";
 
         std::once_flag loggingFlag;
 
@@ -45,33 +45,32 @@ namespace mxl::lib
             spdlog::cfg::load_env_levels("MXL_LOG_LEVEL");
         }
 
-        /// Simple json string parser wrapper
-        ///
-        /// \param options The options json string to parse
-        /// \param config The parsed json object
-        /// \return true if the parsing was successful, false otherwise
-        bool parseOptionsJson(std::string const& options, picojson::object& config)
+    }
+
+    struct InstanceOptions
+    {
+    public:
+        struct Impl
+        {};
+
+    public: // reflection
+        using ReflectionType = Impl;
+
+        InstanceOptions(Impl impl)
+            : _impl(std::move(impl))
+        {}
+
+        [[nodiscard]]
+        ReflectionType const& reflection() const
         {
-            picojson::value parsed;
-            std::string err = picojson::parse(parsed, options);
-            if (!err.empty())
-            {
-                MXL_ERROR("Failed to parse options json: {}", err);
-                return false;
-            }
-
-            if (!parsed.is<picojson::object>())
-            {
-                return false;
-            }
-
-            // Assign the json object config
-            config = parsed.get<picojson::object>();
-
-            return true;
+            return _impl;
         }
 
-    }
+    public:
+
+    private:
+        Impl _impl;
+    };
 
     Instance::Instance(std::filesystem::path const& mxlDomain, std::string const& options, std::unique_ptr<FlowIoFactory>&& flowIoFactory)
         : _flowManager{mxlDomain}
@@ -227,40 +226,62 @@ namespace mxl::lib
     std::unique_ptr<FlowData> Instance::createFlow(std::string const& flowDef)
     {
         // Parse the json flow resource
-        auto const parser = FlowParser{flowDef};
+        auto const parser = NMOSFlow::fromStr(flowDef);
 
         // Create the flow using the flow manager
-        if (auto const format = parser.getFormat(); mxlIsDiscreteDataFormat(format))
+        if (parser.isVideo())
         {
+            auto videoParser = parser.asVideo();
+
             // Read the mandatory grain_rate field
-            auto const grainRate = parser.getGrainRate();
+            auto const grainRate = videoParser.getGrainRate();
             // Compute the grain count based on our configured history duration
             auto const grainCount = _historyDuration * grainRate.numerator / (1'000'000'000ULL * grainRate.denominator);
 
-            return _flowManager.createDiscreteFlow(parser.getId(),
+            return _flowManager.createDiscreteFlow(videoParser.getId(),
                 flowDef,
                 parser.getFormat(),
                 grainCount,
                 grainRate,
-                parser.getPayloadSize(),
-                parser.getTotalPayloadSlices(),
-                parser.getPayloadSliceLength());
+                videoParser.getPayloadSize(),
+                videoParser.getTotalPayloadSlices(),
+                videoParser.getPayloadSliceLength());
         }
-        else if (mxlIsContinuousDataFormat(format))
+        else if (parser.isData())
         {
+            auto dataParser = parser.asData();
+
             // Read the mandatory grain_rate field
-            auto const sampleRate = parser.getGrainRate();
+            auto const grainRate = dataParser.getGrainRate();
+            // Compute the grain count based on our configured history duration
+            auto const grainCount = _historyDuration * grainRate.numerator / (1'000'000'000ULL * grainRate.denominator);
+
+            return _flowManager.createDiscreteFlow(dataParser.getId(),
+                flowDef,
+                parser.getFormat(),
+                grainCount,
+                grainRate,
+                dataParser.getPayloadSize(),
+                dataParser.getTotalPayloadSlices(),
+                dataParser.getPayloadSliceLength());
+        }
+        else if (parser.isAudio())
+        {
+            auto audioParser = parser.asAudio();
+
+            // Read the mandatory grain_rate field
+            auto const sampleRate = audioParser.getSampleRate();
             // Compute the grain count based on our configured history duration
             auto const bufferLength = _historyDuration * sampleRate.numerator / (1'000'000'000ULL * sampleRate.denominator);
 
-            auto const sampleWordSize = parser.getPayloadSize();
+            auto const sampleWordSize = audioParser.getPayloadSize();
             // FIXME: The page size is just an educated guess to round to for good measure
             auto const lengthPerPage = 4096U / sampleWordSize;
 
             auto const pageAlignedLength = ((bufferLength + lengthPerPage - 1U) / lengthPerPage) * lengthPerPage;
 
             return _flowManager.createContinuousFlow(
-                parser.getId(), flowDef, parser.getFormat(), sampleRate, parser.getChannelCount(), sampleWordSize, pageAlignedLength);
+                audioParser.getId(), flowDef, parser.getFormat(), sampleRate, audioParser.getChannelCount(), sampleWordSize, pageAlignedLength);
         }
         throw std::runtime_error("Unsupported flow format.");
     }
@@ -375,13 +396,13 @@ namespace mxl::lib
                 std::stringstream buffer;
                 buffer << ifs.rdbuf();
                 std::string json_content = buffer.str();
-                picojson::object config;
-                if (parseOptionsJson(json_content, config))
+                auto config = rfl::json::read<FlowOptions>(json_content);
+                if (config)
                 {
-                    if (auto it = config.find(MXL_HISTORY_DURATION_OPTION); it != config.end() && it->second.is<double>())
+                    if (config->hasHistoryDuration())
                     {
-                        MXL_TRACE("Found history duration option in domain specific options: {}ns", it->second.get<double>());
-                        historyDuration = static_cast<std::uint64_t>(it->second.get<double>());
+                        historyDuration = config->getHistoryDurationNs();
+                        MXL_TRACE("Found history duration option in domain specific options: {}ns", config->getHistoryDurationNs());
                     }
                 }
                 else
@@ -394,11 +415,10 @@ namespace mxl::lib
         // If we have an instance level options string, parse it as well.
         if (!options.empty())
         {
-            picojson::object config;
-            if (parseOptionsJson(options, config))
-            {
-                // We are not considering MXL_HISTORY_DURATION_TAG here. we don't want per-instance history durations.
-                // In the future we might want to use this mecanism to set other options that would be instance specific.
+            auto config = rfl::json::read<FlowOptions>(options);
+            if (config)
+            { // We are not considering MXL_HISTORY_DURATION_TAG here. we don't want per-instance history durations.
+              // In the future we might want to use this mecanism to set other options that would be instance specific.
             }
             else
             {

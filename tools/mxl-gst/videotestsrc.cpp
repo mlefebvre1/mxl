@@ -6,10 +6,12 @@
 #include <CLI/CLI.hpp>
 #include <gst/app/gstappsink.h>
 #include <gst/gst.h>
+#include <rfl/json.hpp>
+#include <rfl/TaggedUnion.hpp>
 #include <mxl/flow.h>
 #include <mxl/mxl.h>
 #include <mxl/time.h>
-#include "mxl-internal/FlowParser.hpp"
+#include "mxl-internal/FlowNMOS.hpp"
 #include "mxl-internal/Logging.hpp"
 
 std::sig_atomic_t volatile g_exit_requested = 0;
@@ -254,15 +256,27 @@ int main(int argc, char** argv)
         MXL_ERROR("Failed to open file: '{}'", flowConfigFile);
         return EXIT_FAILURE;
     }
-    std::string flow_descriptor{std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
-    mxl::lib::FlowParser descriptor_parser{flow_descriptor};
 
-    auto frame_rate = descriptor_parser.getGrainRate();
-    auto flowID = uuids::to_string(descriptor_parser.getId());
+    std::string flow_descriptor{std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
+
+    auto nmosFlow = mxl::lib::NMOSFlow::fromStr(flow_descriptor);
+
+    MXL_INFO("Successfully deserialized NMOS JSON file");
+    if (!nmosFlow.isVideo())
+    {
+        throw std::invalid_argument("only flow video is supported");
+    }
+
+    MXL_INFO("{}", nmosFlow.toJson());
+
+    auto nmosVideoFlow = nmosFlow.asVideo();
+
+    auto frame_rate = nmosVideoFlow.getGrainRate();
+    auto flowID = uuids::to_string(nmosVideoFlow.getId());
 
     GstreamerPipelineConfig gst_config{
-        .frame_width = static_cast<uint64_t>(descriptor_parser.get<double>("frame_width")),
-        .frame_height = static_cast<uint64_t>(descriptor_parser.get<double>("frame_height")),
+        .frame_width = nmosVideoFlow.getFrameWidth(),
+        .frame_height = nmosVideoFlow.getFrameHeight(),
         .frame_rate = frame_rate,
         .pattern = pattern_map.at(pattern),
         .textoverlay = textOverlay,

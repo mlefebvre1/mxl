@@ -46,10 +46,6 @@ if (NOT TARGET fmt::fmt)
     find_package(fmt CONFIG REQUIRED)
 endif()
 
-if (NOT TARGET picojson::picojson)
-    find_package(picojson REQUIRED)
-endif()
-
 if (NOT TARGET PcapPlusPlus::Pcap++)
     find_package(PcapPlusPlus CONFIG)
 endif()
@@ -61,7 +57,6 @@ target_link_libraries(mxl-internal-tests
             stduuid
             spdlog::spdlog
             fmt::fmt
-            picojson::picojson
             Catch2::Catch2WithMain
     )
 

@@ -4,6 +4,7 @@
 include(GNUInstallDirs)
 
 find_package(PkgConfig REQUIRED)
+find_package(reflectcpp REQUIRED)
 pkg_search_module(gstreamer IMPORTED_TARGET gstreamer-1.0)
 pkg_search_module(gstreamer-app IMPORTED_TARGET gstreamer-app-1.0)
 pkg_search_module(gstreamer-audio IMPORTED_TARGET gstreamer-audio-1.0)
@@ -50,6 +51,7 @@ if (gstreamer_FOUND)
                 PkgConfig::gstreamer
                 PkgConfig::gstreamer-app
                 PkgConfig::gstreamer-video
+                reflectcpp::reflectcpp
             )
 
 
