@@ -47,6 +47,8 @@ namespace mxl::lib
     struct NMOSCommonFlow
     {
     public:
+        using NonEmptyString = rfl::Validator<std::string, rfl::Size<rfl::Minimum<1>>>;
+
         struct NMOSTags
         {
             rfl::Rename<"urn:x-nmos:tag:grouphint/v1.0", std::vector<std::string>> groupHints;
@@ -72,7 +74,7 @@ namespace mxl::lib
         rfl::Rename<"description", std::string> description;
         rfl::Rename<"id", rfl::UUIDv4> id;
         rfl::Rename<"tags", NMOSTags> tags;
-        rfl::Rename<"label", std::string> label;
+        rfl::Rename<"label", NonEmptyString> label;
         rfl::Rename<"media_type", std::string> mediaType;
 
     private:

@@ -76,7 +76,7 @@ namespace mxl::lib
 
     std::string_view NMOSCommonFlow::getLabel() const noexcept
     {
-        return label.get();
+        return label.get().value();
     }
 
     std::string_view NMOSCommonFlow::getMediaType() const noexcept
@@ -194,7 +194,7 @@ namespace mxl::lib
 
     std::uint32_t NMOSVideoFlow::getFrameHeight() const noexcept
     {
-        return frameWidth.get().value();
+        return frameHeight.get().value();
     }
 
     std::string_view NMOSVideoFlow::getColorspace() const noexcept

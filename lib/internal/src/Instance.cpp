@@ -249,7 +249,7 @@ namespace mxl::lib
         }
         else if (parser.isData())
         {
-            auto dataParser = parser.asVideo();
+            auto dataParser = parser.asData();
 
             // Read the mandatory grain_rate field
             auto const grainRate = dataParser.getGrainRate();
