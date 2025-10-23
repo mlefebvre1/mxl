@@ -92,6 +92,10 @@ namespace mxl::lib
             result.maxCommitBatchSizeHint = 1;
             result.maxSyncBatchSizeHint = 1;
 
+            // FIXME: This should come from the configuration when device memory is supported
+            result.payloadLocation = MXL_PAYLOAD_LOCATION_HOST_MEMORY;
+            result.deviceIndex = -1;
+
             // Get the inode of the flow data file
             struct ::stat st;
             if (::stat(flowDataPath.string().c_str(), &st) != 0)
@@ -179,7 +183,6 @@ namespace mxl::lib
                 gInfo.validSlices = 0;
                 gInfo.version = GRAIN_HEADER_VERSION;
                 gInfo.size = sizeof gInfo;
-                gInfo.deviceIndex = -1;
             }
 
             auto const finalDir = makeFlowDirectoryName(_mxlDomain, uuidString);

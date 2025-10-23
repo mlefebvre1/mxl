@@ -3,7 +3,6 @@
 
 #include <cstdint>
 #include <cstdlib>
-#include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -20,23 +19,11 @@
 #include <mxl/flow.h>
 #include <mxl/mxl.h>
 #include <mxl/time.h>
+#include "mxl-internal/Flow.hpp"
 #include "mxl-internal/PathUtils.hpp"
 
 namespace
 {
-    constexpr char const* getFormatString(int format) noexcept
-    {
-        switch (format)
-        {
-            case MXL_DATA_FORMAT_UNSPECIFIED: return "UNSPECIFIED";
-            case MXL_DATA_FORMAT_VIDEO:       return "Video";
-            case MXL_DATA_FORMAT_AUDIO:       return "Audio";
-            case MXL_DATA_FORMAT_DATA:        return "Data";
-            case MXL_DATA_FORMAT_MUX:         return "Multiplexed";
-            default:                          return "UNKNOWN";
-        }
-    }
-
     bool isTerminal(std::ostream& os)
     {
         if (&os == &std::cout)
@@ -53,26 +40,10 @@ namespace
 
 std::ostream& operator<<(std::ostream& os, mxlFlowInfo const& info)
 {
-    auto span = gsl::span<std::uint8_t, sizeof info.common.id>(const_cast<std::uint8_t*>(info.common.id), sizeof info.common.id);
-    auto id = uuids::uuid(span);
-    os << "- Flow [" << uuids::to_string(id) << ']' << '\n'
-       << '\t' << fmt::format("{: >18}: {}", "Version", info.version) << '\n'
-       << '\t' << fmt::format("{: >18}: {}", "Struct size", info.size) << '\n'
-       << '\t' << fmt::format("{: >18}: {}", "Last write time", info.common.lastWriteTime) << '\n'
-       << '\t' << fmt::format("{: >18}: {}", "Last read time", info.common.lastReadTime) << '\n'
-       << '\t' << fmt::format("{: >18}: {}", "Format", getFormatString(info.common.format)) << '\n'
-       << '\t' << fmt::format("{: >18}: {}", "Commit batch size", info.common.maxCommitBatchSizeHint) << '\n'
-       << '\t' << fmt::format("{: >18}: {}", "Sync batch size", info.common.maxSyncBatchSizeHint) << '\n'
-       << '\t' << fmt::format("{: >18}: {:0>8x}", "Flags", info.common.flags) << '\n';
-
     auto const now = mxlGetTime();
 
     if (mxlIsDiscreteDataFormat(info.common.format))
     {
-        os << '\t' << fmt::format("{: >18}: {}/{}", "Grain rate", info.discrete.grainRate.numerator, info.discrete.grainRate.denominator) << '\n'
-           << '\t' << fmt::format("{: >18}: {}", "Grain count", info.discrete.grainCount) << '\n'
-           << '\t' << fmt::format("{: >18}: {}", "Head index", info.discrete.headIndex) << '\n';
-
         auto const currentIndex = mxlTimestampToIndex(&info.discrete.grainRate, now);
         auto const latency = currentIndex - info.discrete.headIndex;
 
@@ -97,12 +68,6 @@ std::ostream& operator<<(std::ostream& os, mxlFlowInfo const& info)
     }
     else if (mxlIsContinuousDataFormat(info.common.format))
     {
-        os << '\t' << fmt::format("{: >18}: {}/{}", "Sample rate", info.continuous.sampleRate.numerator, info.continuous.sampleRate.denominator)
-           << '\n'
-           << '\t' << fmt::format("{: >18}: {}", "Channel count", info.continuous.channelCount) << '\n'
-           << '\t' << fmt::format("{: >18}: {}", "Buffer length", info.continuous.bufferLength) << '\n'
-           << '\t' << fmt::format("{: >18}: {}", "Head index", info.continuous.headIndex) << '\n';
-
         auto const currentIndex = mxlTimestampToIndex(&info.continuous.sampleRate, now);
         auto const latency = currentIndex - info.continuous.headIndex;
 
@@ -252,8 +217,13 @@ int printFlow(std::string const& in_domain, std::string const& in_id)
     }
     else
     {
-        // Print the flow information.
-        std::cout << info;
+        auto flow = mxl::lib::Flow{info};
+
+        // Print the flowInfo information.
+        std::cout << flow;
+
+        // Print flow state information
+        std::cout << flow.info;
 
         auto active = false;
         status = mxlIsFlowActive(instance, in_id.c_str(), &active);

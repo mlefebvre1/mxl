@@ -71,6 +71,9 @@ TEST_CASE_PERSISTENT_FIXTURE(mxl::tests::mxlDomainFixture, "Video Flow : Create/
     /// Open the grain for writing.
     REQUIRE(mxlFlowWriterOpenGrain(writer, index, &gInfo, &buffer) == MXL_STATUS_OK);
 
+    // Confirm that the grain index is set in the grain info
+    REQUIRE(gInfo.index == index);
+
     // Confirm that the grain size and stride lengths are what we expect.
     constexpr auto w = 1920;
     constexpr auto h = 1080;

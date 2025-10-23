@@ -3,7 +3,6 @@
 
 #include "mxl-internal/Flow.hpp"
 #include <cstdint>
-#include <ctime>
 #include <ostream>
 #include <uuid.h>
 #include <fmt/format.h>
@@ -25,6 +24,17 @@ namespace mxl::lib
                 default:                          return "UNKNOWN";
             }
         }
+
+        constexpr char const* getPayloadLocationString(mxlPayloadLocation payloadLocation) noexcept
+        {
+            switch (payloadLocation)
+            {
+                case MXL_PAYLOAD_LOCATION_HOST_MEMORY:   return "Host";
+                case MXL_PAYLOAD_LOCATION_DEVICE_MEMORY: return "Device";
+                default:                                 return "UNKNOWN";
+            }
+        }
+
     }
 
     std::ostream& operator<<(std::ostream& os, Flow const& flow)
@@ -40,6 +50,8 @@ namespace mxl::lib
            << '\t' << fmt::format("{: >18}: {}", "Format", getFormatString(flow.info.common.format)) << '\n'
            << '\t' << fmt::format("{: >18}: {}", "Commit batch size", flow.info.common.maxCommitBatchSizeHint) << '\n'
            << '\t' << fmt::format("{: >18}: {}", "Sync batch size", flow.info.common.maxSyncBatchSizeHint) << '\n'
+           << '\t' << fmt::format("{: >18}: {}", "Payload Location", getPayloadLocationString(flow.info.common.payloadLocation)) << '\n'
+           << '\t' << fmt::format("{: >18}: {}", "Device Index", flow.info.common.deviceIndex) << '\n'
            << '\t' << fmt::format("{: >18}: {:0>8x}", "Flags", flow.info.common.flags) << '\n';
 
         if (mxlIsDiscreteDataFormat(flow.info.common.format))
@@ -65,13 +77,10 @@ namespace mxl::lib
 
     std::ostream& operator<<(std::ostream& os, Grain const& grain)
     {
-        auto const location = (grain.header.info.payloadLocation == MXL_PAYLOAD_LOCATION_HOST_MEMORY) ? "host" : "device";
         os << "- Grain" << '\n'
            << '\t' << fmt::format("{: >14}: {}", "Version", grain.header.info.version) << '\n'
            << '\t' << fmt::format("{: >14}: {}", "Struct size", grain.header.info.size) << '\n'
            << '\t' << fmt::format("{: >14}: {:0>8x}", "Flags", grain.header.info.flags) << '\n'
-           << '\t' << fmt::format("{: >14}: {}", "Location", location) << '\n'
-           << '\t' << fmt::format("{: >14}: {}", "Device", grain.header.info.deviceIndex) << '\n'
            << '\t' << fmt::format("{: >14}: {}", "Payload size", grain.header.info.grainSize) << '\n';
 
         return os;

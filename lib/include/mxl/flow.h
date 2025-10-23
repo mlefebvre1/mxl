@@ -29,15 +29,6 @@ extern "C"
 #define MXL_GRAIN_FLAG_INVALID 0x00000001 // 1 << 0.
 
     /**
-     * The payload location of the grain
-     */
-    typedef enum mxlPayloadLocation
-    {
-        MXL_PAYLOAD_LOCATION_HOST_MEMORY = 0,
-        MXL_PAYLOAD_LOCATION_DEVICE_MEMORY = 1,
-    } mxlPayloadLocation;
-
-    /**
      * A helper type used to describe consecutive sequences of bytes in memory.
      */
     typedef struct mxlBufferSlice_t
@@ -126,12 +117,12 @@ extern "C"
         uint32_t version;
         /// Size of the structure
         uint32_t size;
+
+        /// Absolute Grain index used by that ring buffer entry.
+        uint64_t index;
+
         /// Grain flags.
         uint32_t flags;
-        /// Payload location
-        mxlPayloadLocation payloadLocation;
-        /// Device index (if payload is in device memory). -1 if on host memory.
-        int32_t deviceIndex;
         /// Size in bytes of the complete payload of a grain
         uint32_t grainSize;
         /// Number of slices that make up a full grain. A slice is the elemental data type that can be comitted to a grain. For video, this is a
@@ -140,8 +131,8 @@ extern "C"
         /// How many slices of the grain are currently valid (committed). This is typically used when writing individual slices instead of a full
         /// grain. A grain is complete when validSlices == totalSlices
         uint16_t validSlices;
-        /// User data space
-        uint8_t userData[4068];
+        /// Padding. Do not use.
+        uint8_t reserved[4068];
     } mxlGrainInfo;
 
     typedef struct mxlFlowReader_t* mxlFlowReader;

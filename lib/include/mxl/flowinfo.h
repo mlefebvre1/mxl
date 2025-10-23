@@ -27,6 +27,15 @@ extern "C"
 {
 #endif
     /**
+     * The payload location of the grain
+     */
+    typedef enum mxlPayloadLocation
+    {
+        MXL_PAYLOAD_LOCATION_HOST_MEMORY = 0,
+        MXL_PAYLOAD_LOCATION_DEVICE_MEMORY = 1,
+    } mxlPayloadLocation;
+
+    /**
      * Metadata about media a flow that is independent of the data format of the
      * flow and thus common to all flows handled by MXL.
      */
@@ -66,8 +75,18 @@ extern "C"
          */
         uint32_t maxSyncBatchSizeHint;
 
+        /*
+         * Device index (if payload is in device memory). -1 if on host memory.
+         */
+        int32_t deviceIndex;
+
+        /**
+         * Where is payload memory located
+         */
+        mxlPayloadLocation payloadLocation;
+
         /** Reserved space for future extensions.  */
-        uint8_t reserved[72];
+        uint8_t reserved[64];
     } mxlCommonFlowInfo;
 
     typedef struct mxlDiscreteFlowInfo_t
@@ -152,8 +171,8 @@ extern "C"
             mxlContinuousFlowInfo continuous;
         };
 
-        /** User data space. */
-        uint8_t userData[3832];
+        /** Padding. Do not use. */
+        uint8_t reserved[3832];
     } mxlFlowInfo;
 
 #ifdef __cplusplus

@@ -3,7 +3,6 @@
 
 #include "PosixDiscreteFlowWriter.hpp"
 #include <cstdint>
-#include <cstring>
 #include <stdexcept>
 #include <fcntl.h>
 #include <uuid.h>
@@ -13,7 +12,6 @@
 #include <mxl/time.h>
 #include "mxl-internal/Flow.hpp"
 #include "mxl-internal/FlowManager.hpp"
-#include "mxl-internal/SharedMemory.hpp"
 #include "mxl-internal/Sync.hpp"
 #include "mxl-internal/Timing.hpp"
 
@@ -49,6 +47,7 @@ namespace mxl::lib
         {
             auto offset = in_index % _flowData->flowInfo()->discrete.grainCount;
             auto const grain = _flowData->grainAt(offset);
+            grain->header.info.index = in_index; // Set the absolute grain index associated to that ring buffer entry
             *out_grainInfo = grain->header.info;
             *out_payload = reinterpret_cast<std::uint8_t*>(&grain->header + 1);
             _currentIndex = in_index;
