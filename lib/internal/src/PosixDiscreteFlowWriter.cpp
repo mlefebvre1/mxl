@@ -74,6 +74,11 @@ namespace mxl::lib
     {
         if (_flowData)
         {
+            if (mxlGrainInfo.index != _currentIndex)
+            {
+                return MXL_ERR_INVALID_ARG;
+            }
+
             auto const flowInfo = _flowData->flowInfo();
             flowInfo->discrete.headIndex = _currentIndex;
 

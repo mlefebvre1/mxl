@@ -118,7 +118,7 @@ extern "C"
         /// Size of the structure
         uint32_t size;
 
-        /// Absolute Grain index used by that ring buffer entry.
+        /// Epoch Grain index used by that ring buffer entry.
         uint64_t index;
 
         /// Grain flags.
