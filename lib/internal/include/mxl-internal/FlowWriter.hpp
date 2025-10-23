@@ -7,6 +7,7 @@
 #include <uuid.h>
 #include <mxl/flow.h>
 #include <mxl/mxl.h>
+#include "mxl-internal/FlowData.hpp"
 
 namespace mxl::lib
 {
@@ -25,6 +26,13 @@ namespace mxl::lib
         /// \return A copy of the mxlFlowInfo
         ///
         virtual mxlFlowInfo getFlowInfo() = 0;
+
+        ///
+        /// Accessor for the underlying flow data.
+        /// The flow writer must first open the flow before invoking this method.
+        ///
+        [[nodiscard]]
+        virtual FlowData const& getFlowData() const = 0;
 
         /// Invoked when a flow is read. The writer will
         /// update the 'lastReadTime' field

@@ -15,6 +15,15 @@ namespace mxl::lib
         , _bufferLength{_flowData->channelBufferLength()}
     {}
 
+    FlowData const& PosixContinuousFlowReader::getFlowData() const
+    {
+        if (_flowData)
+        {
+            return *_flowData;
+        }
+        throw std::runtime_error("No open flow.");
+    }
+
     mxlFlowInfo PosixContinuousFlowReader::getFlowInfo()
     {
         if (_flowData)

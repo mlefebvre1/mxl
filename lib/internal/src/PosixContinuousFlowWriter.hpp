@@ -30,6 +30,13 @@ namespace mxl::lib
          */
         PosixContinuousFlowWriter(FlowManager const& manager, uuids::uuid const& flowId, std::unique_ptr<ContinuousFlowData>&& data);
 
+        /**
+         * Accessor for the underlying flow data.
+         * The flow writer must first open the flow before invoking this method.
+         */
+        [[nodiscard]]
+        FlowData const& getFlowData() const final;
+
         /** \see FlowWriter::getFlowInfo */
         virtual mxlFlowInfo getFlowInfo() override;
 

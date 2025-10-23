@@ -25,6 +25,15 @@ namespace mxl::lib
         , _currentIndex{MXL_UNDEFINED_INDEX}
     {}
 
+    FlowData const& PosixDiscreteFlowWriter::getFlowData() const
+    {
+        if (_flowData)
+        {
+            return *_flowData;
+        }
+        throw std::runtime_error("No open flow.");
+    }
+
     mxlFlowInfo PosixDiscreteFlowWriter::getFlowInfo()
     {
         if (_flowData)

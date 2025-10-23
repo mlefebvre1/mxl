@@ -8,6 +8,7 @@
 #include <uuid.h>
 #include <mxl/flow.h>
 #include <mxl/mxl.h>
+#include "mxl-internal/FlowData.hpp"
 
 namespace mxl::lib
 {
@@ -25,6 +26,13 @@ namespace mxl::lib
         /// \return The flow domain
         ///
         std::filesystem::path const& getDomain() const;
+
+        ///
+        /// Accessor for the underlying flow data.
+        /// The flow reader must first open the flow before invoking this method.
+        ///
+        [[nodiscard]]
+        virtual FlowData const& getFlowData() const = 0;
 
         ///
         /// Accessor for the current mxlFlowInfo. A copy of the current structure is returned.

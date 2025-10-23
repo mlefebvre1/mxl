@@ -28,6 +28,13 @@ namespace mxl::lib
         PosixDiscreteFlowReader(FlowManager const& manager, uuids::uuid const& flowId, std::unique_ptr<DiscreteFlowData>&& data);
 
         ///
+        /// Accessor for the underlying flow data.
+        /// The flow reader must first open the flow before invoking this method.
+        ///
+        [[nodiscard]]
+        FlowData const& getFlowData() const final;
+
+        ///
         /// Accessor for the current mxlFlowInfo. A copy of the current structure is returned.
         /// The reader must be properly attached to the flow before invoking this method.
         /// \return A copy of the mxlFlowInfo

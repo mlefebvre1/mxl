@@ -50,6 +50,15 @@ namespace mxl::lib
         // Ignore failures.
     }
 
+    FlowData const& PosixDiscreteFlowReader::getFlowData() const
+    {
+        if (_flowData)
+        {
+            return *_flowData;
+        }
+        throw std::runtime_error("No open flow.");
+    }
+
     mxlFlowInfo PosixDiscreteFlowReader::getFlowInfo()
     {
         if (_flowData)
