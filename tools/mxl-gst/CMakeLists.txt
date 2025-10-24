@@ -84,6 +84,37 @@ if (gstreamer_FOUND)
                 PkgConfig::gstreamer-video
         )
 
+    add_executable(mxl-gst-audiosink)
+    target_compile_features(mxl-gst-audiosink
+            PRIVATE
+                cxx_std_20
+        )
+    set_target_properties(mxl-gst-audiosink
+            PROPERTIES
+                POSITION_INDEPENDENT_CODE   ON
+                VISIBILITY_INLINES_HIDDEN   ON
+                C_VISIBILITY_PRESET         hidden
+                CXX_VISIBILITY_PRESET       hidden
+                C_EXTENSIONS                OFF
+                CXX_EXTENSIONS              OFF
+        )
+    target_sources(mxl-gst-audiosink
+            PRIVATE
+                audiosink.cpp
+        )
+
+    target_link_libraries(mxl-gst-audiosink
+            PRIVATE
+                mxl-internal
+                mxl
+                CLI11::CLI11
+                spdlog::spdlog
+                PkgConfig::gstreamer
+                PkgConfig::gstreamer-app
+                PkgConfig::gstreamer-audio
+                PkgConfig::gstreamer-video
+        )
+
     add_executable(mxl-gst-looping-filesrc)
     target_compile_features(mxl-gst-looping-filesrc
             PRIVATE
