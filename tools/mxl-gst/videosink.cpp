@@ -39,6 +39,7 @@ namespace
     {
         mxlRational rate;
         std::size_t channelCount;
+        std::size_t nbSamplesPerBatch;
         std::vector<size_t> spkrEnabled;
     };
 
@@ -285,10 +286,9 @@ namespace
         }
 
         GstAudioInfo* _audioInfo{nullptr};
-
-    private:
         GstreamerAudioPipelineConfig _config;
 
+    private:
         GstElement* _pipeline{nullptr};
         GstElement* _appsrc{nullptr};
 
@@ -400,7 +400,7 @@ namespace
         {
             MXL_INFO("Starting continuous flow reading at rate {}/{}", rate.numerator, rate.denominator);
 
-            auto const windowSize = 48; // samples per read
+            auto const windowSize = gstPipeline._config.nbSamplesPerBatch; // samples per read
             mxlWrappedMultiBufferSlice payload;
 
             auto index = mxlGetCurrentIndex(&rate);
@@ -521,11 +521,17 @@ namespace
 
         int64_t sampleOffset;
         auto sampleOffsetOpt = app.add_option("--audio-offset", sampleOffset, "Audio offset in samples. Positive value means you are adding a delay");
-        sampleOffsetOpt->default_val(0);
+        sampleOffsetOpt->default_val(48);
 
         int64_t grainOffset;
         auto grainOffsetOpt = app.add_option("--video-offset", grainOffset, "Video offset in grains. Positive value means you are adding a delay");
         grainOffsetOpt->default_val(0);
+
+        uint64_t samplesPerBatch;
+        auto samplesPerBatchOpt = app.add_option("-s, --samples-per-batch",
+            samplesPerBatch,
+            "Number of audio samples per batch. Should be the same or bigger than the videotestsrc setting.");
+        samplesPerBatchOpt->default_val(48);
 
         CLI11_PARSE(app, argc, argv);
 
@@ -570,6 +576,7 @@ namespace
                     GstreamerAudioPipelineConfig audioConfig{
                         .rate = parser.getGrainRate(),
                         .channelCount = parser.getChannelCount(),
+                        .nbSamplesPerBatch = samplesPerBatch,
                         .spkrEnabled = listenChannels,
                     };
 
