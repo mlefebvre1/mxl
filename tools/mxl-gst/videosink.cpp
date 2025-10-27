@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <stdexcept>
@@ -15,6 +16,9 @@
 #include <glib-object.h>
 #include <gst/audio/audio.h>
 #include <gst/gst.h>
+#include <gst/gstclock.h>
+#include <gst/gstpipeline.h>
+#include <gst/gstsystemclock.h>
 #include <mxl/flow.h>
 #include <mxl/mxl.h>
 #include <mxl/time.h>
@@ -114,6 +118,14 @@ namespace
             }
 
             g_object_set(G_OBJECT(_appsrc), "format", GST_FORMAT_TIME, nullptr);
+
+            auto clock = gst_pipeline_get_clock(GST_PIPELINE(_pipeline));
+            if (!clock)
+            {
+                throw std::runtime_error("Gstreamer: could not get pipeline clock.");
+            }
+
+            g_object_set(G_OBJECT(clock), "clock-type", GST_CLOCK_TYPE_TAI, nullptr);
         }
 
         void start() final
@@ -209,6 +221,14 @@ namespace
 
             auto caps = gstCapsFromAudioConfig(_config);
             g_object_set(G_OBJECT(_appsrc), "caps", caps, "format", GST_FORMAT_TIME, nullptr);
+
+            auto clock = gst_pipeline_get_clock(GST_PIPELINE(_pipeline));
+            if (!clock)
+            {
+                throw std::runtime_error("Gstreamer: could not get pipeline clock.");
+            }
+
+            g_object_set(G_OBJECT(clock), "clock-type", GST_CLOCK_TYPE_TAI, nullptr);
         }
 
         std::string generateMixMatrix()
