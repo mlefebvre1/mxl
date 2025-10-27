@@ -133,13 +133,13 @@ namespace
             // Start playing
             gst_element_set_state(_pipeline, GST_STATE_PLAYING);
             auto baseTime = gst_element_get_base_time(_pipeline);
-            _mxlClockOffset = mxlGetTime() - baseTime;
-            MXL_INFO("Video pipeline base time: {} ns, MXL clock offset: {} ns", baseTime, _mxlClockOffset);
+            _gstBaseTime = mxlGetTime() - baseTime;
+            MXL_INFO("Video pipeline base time: {} ns, MXL clock offset: {} ns", baseTime, _gstBaseTime);
         }
 
         void pushSample(GstBuffer* buffer, std::uint64_t now) final
         {
-            GST_BUFFER_PTS(buffer) = now - _mxlClockOffset;
+            GST_BUFFER_PTS(buffer) = now - _gstBaseTime;
 
             int ret;
             g_signal_emit_by_name(_appsrc, "push-buffer", buffer, &ret);
@@ -155,7 +155,7 @@ namespace
         GstElement* _pipeline{nullptr};
         GstElement* _appsrc{nullptr};
 
-        std::uint64_t _mxlClockOffset{0};
+        std::uint64_t _gstBaseTime{0};
     };
 
     class GstreamerAudioPipeline : public GstreamerPipeline
@@ -374,24 +374,35 @@ namespace
             {
                 mxlGrainInfo grainInfo;
                 uint8_t* payload;
-                auto ret = mxlFlowReaderGetGrain(_reader, index - playbackOffset, timeoutNs, &grainInfo, &payload);
+
+                auto requestedIndex = index - playbackOffset;
+                auto ret = mxlFlowReaderGetGrain(_reader, requestedIndex, timeoutNs, &grainInfo, &payload);
                 if (ret == MXL_ERR_OUT_OF_RANGE_TOO_EARLY)
                 {
                     // We are too early somehow, keep trying the same grain index
                     mxlFlowReaderGetInfo(_reader, &_flowInfo);
-                    MXL_WARN("Failed to get samples at index {}: TOO EARLY. Last published {}", index, _flowInfo.discrete.headIndex);
+                    MXL_WARN("Failed to get samples at index {}: TOO EARLY. Last published {}", requestedIndex, _flowInfo.discrete.headIndex);
 
                     continue;
                 }
                 else if (ret == MXL_ERR_OUT_OF_RANGE_TOO_LATE)
                 {
-                    // We are too late, that's too bad. Time travel!
+                    mxlFlowReaderGetInfo(_reader, &_flowInfo);
+                    MXL_WARN("Failed to get samples at index {}: TOO LATE. Last published {}", requestedIndex, _flowInfo.discrete.headIndex);
+
+                    // We are too late. Re-align.. The player will handle missing samples
                     index = mxlGetCurrentIndex(&rate);
+                    continue;
+                }
+                else if (ret == MXL_ERR_TIMEOUT)
+                {
+                    // Timeout waiting for grain
+                    MXL_WARN("Timeout waiting for grain at index {}", requestedIndex);
                     continue;
                 }
                 else if (ret != MXL_STATUS_OK)
                 {
-                    MXL_ERROR("Unexpected error when reading the grain {} with status '{}'. Exiting.", index, static_cast<int>(ret));
+                    MXL_ERROR("Unexpected error when reading the grain {} with status '{}'. Exiting.", requestedIndex, static_cast<int>(ret));
                     return ret;
                 }
 
@@ -411,6 +422,7 @@ namespace
                 gstPipeline.pushSample(buffer, mxlIndexToTimestamp(&rate, index));
 
                 gst_buffer_unref(buffer);
+                index++;
             }
 
             return 0;
@@ -427,24 +439,33 @@ namespace
 
             while (!g_exit_requested)
             {
-                auto ret = mxlFlowReaderGetSamples(_reader, index - playbackOffset, windowSize, &payload);
+                auto requestedIndex = index - playbackOffset;
+
+                auto ret = mxlFlowReaderGetSamples(_reader, requestedIndex, windowSize, &payload);
                 if (ret == MXL_ERR_OUT_OF_RANGE_TOO_EARLY)
                 {
                     // We are too early somehow, keep trying the same index
                     mxlFlowReaderGetInfo(_reader, &_flowInfo);
-                    MXL_WARN("Failed to get samples at index {}: TOO EARLY. Last published {}", index, _flowInfo.continuous.headIndex);
+                    MXL_WARN("Failed to get samples at index {}: TOO EARLY. Last published {}", requestedIndex, _flowInfo.continuous.headIndex);
                     continue;
                 }
                 else if (ret == MXL_ERR_OUT_OF_RANGE_TOO_LATE)
                 {
-                    MXL_WARN("Failed to get samples at index {}: TOO LATE", index);
-                    // We are too late, that's too bad. Time travel!
+                    mxlFlowReaderGetInfo(_reader, &_flowInfo);
+                    MXL_WARN("Failed to get samples at index {}: TOO LATE. Last published {}", requestedIndex, _flowInfo.continuous.headIndex);
+                    // We are too late. The player will handle missing samples
                     index = mxlGetCurrentIndex(&rate);
+                    continue;
+                }
+                else if (ret == MXL_ERR_TIMEOUT)
+                {
+                    // Timeout waiting for samples
+                    MXL_WARN("Timeout waiting for samples at index {}", requestedIndex);
                     continue;
                 }
                 else if (ret != MXL_STATUS_OK)
                 {
-                    MXL_ERROR("Unexpected error when reading the grain {} with status '{}'. Exiting.", index, static_cast<int>(ret));
+                    MXL_ERROR("Unexpected error when reading the samples {} with status '{}'. Exiting.", requestedIndex, static_cast<int>(ret));
                     return ret;
                 }
 
@@ -612,7 +633,6 @@ namespace
         {
             t.join();
         }
-
         gst_deinit();
 
         return 0;
