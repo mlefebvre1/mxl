@@ -127,6 +127,32 @@ OPTIONS:
                               Change the text overlay of the test source
 ```
 
+Example to run with video only:
+
+```bash
+./build/Linux-Clang-Debug/tools/mxl-gst/mxl-gst-videotestsrc \
+  -d /dev/shm \
+  -v lib/tests/data/v210_flow.json
+```
+
+Example to run with audio only:
+
+```bash
+./build/Linux-Clang-Debug/tools/mxl-gst/mxl-gst-videotestsrc \
+  -d /dev/shm \
+  -a lib/tests/data/audio_flow.json
+```
+
+Example to run with both video and audio:
+
+```bash
+./build/Linux-Clang-Debug/tools/mxl-gst/mxl-gst-videotestsrc \
+  -d /dev/shm \
+  -v lib/tests/data/v210_flow.json \
+  -a lib/tests/data/audio_flow.json
+
+```
+
 ## mxl-gst-videosink
 
 A binary that reads from a MXL Flow and display the flow using the gstreamer element 'autovideosink'.
@@ -150,10 +176,38 @@ OPTIONS:
                               specified
   -l,     --listen-channels UINT [[0,1]]  ...
                               Audio channels to listen
-          --audio-offset INT [0]
+          --audio-offset INT [48]
                               Audio offset in samples. Positive value means you are adding a
                               delay
           --video-offset INT [0]
                               Video offset in grains. Positive value means you are adding a
                               delay
+```
+
+Example to run with video only:
+
+```bash
+./build/Linux-Clang-Debug/tools/mxl-gst/mxl-gst-videosink \
+  -d /dev/shm \
+  -v 5fbec3b1-1b0f-417d-9059-8b94a47197ed
+```
+
+Example to run with audio only:
+
+```bash
+./build/Linux-Clang-Debug/tools/mxl-gst/mxl-gst-videosink \
+  -d /dev/shm \
+  -a b3bb5be7-9fe9-4324-a5bb-4c70e1084449
+```
+
+Example to run with both video and audio:
+
+```bash
+./build/Linux-Clang-Debug/tools/mxl-gst/mxl-gst-videosink \
+  -d /dev/shm \
+  -v 5fbec3b1-1b0f-417d-9059-8b94a47197ed \
+  -a b3bb5be7-9fe9-4324-a5bb-4c70e1084449
+
+
+
 ```
