@@ -116,7 +116,7 @@ OPTIONS:
                               Audio sample offset in number of samples. Positive value means
                               you are adding a delay (commit in the past).
           --video-offset INT [0]
-                              Video grain offset in number of grains. Positive value means you
+                              Video frame offset in number of frames. Positive value means you
                               are adding a delay (commit in the past).
   -d,     --domain TEXT:DIR REQUIRED
                               The MXL domain directory
@@ -180,7 +180,7 @@ OPTIONS:
                               Audio offset in samples. Positive value means you are adding a
                               delay
           --video-offset INT [0]
-                              Video offset in grains. Positive value means you are adding a
+                              Video offset in frames. Positive value means you are adding a
                               delay
 ```
 

@@ -565,7 +565,7 @@ namespace
         sampleOffsetOpt->default_val(48);
 
         int64_t grainOffset;
-        auto grainOffsetOpt = app.add_option("--video-offset", grainOffset, "Video offset in grains. Positive value means you are adding a delay");
+        auto grainOffsetOpt = app.add_option("--video-offset", grainOffset, "Video offset in frames. Positive value means you are adding a delay");
         grainOffsetOpt->default_val(0);
 
         uint64_t samplesPerBatch;
@@ -589,6 +589,11 @@ namespace
 
                     auto flowDescriptor = read_flow_descriptor(domain, videoFlowID);
                     mxl::lib::FlowParser parser{flowDescriptor};
+
+                    if (parser.get<std::string>("interlace_mode") != "progressive")
+                    {
+                        throw std::invalid_argument{"This application does not support interlaced flows."};
+                    }
 
                     GstreamerVideoPipelineConfig videoConfig{
                         .frame_width = static_cast<std::uint64_t>(parser.get<double>("frame_width")),

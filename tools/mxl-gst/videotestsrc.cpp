@@ -564,7 +564,7 @@ int main(int argc, char** argv)
 
     int64_t videoOffset;
     auto videoOffsetOpt = app.add_option(
-        "--video-offset", videoOffset, "Video grain offset in number of grains. Positive value means you are adding a delay (commit in the past).");
+        "--video-offset", videoOffset, "Video frame offset in number of frames. Positive value means you are adding a delay (commit in the past).");
     videoOffsetOpt->default_val(0);
 
     std::string domain;
@@ -602,6 +602,11 @@ int main(int argc, char** argv)
                 }
                 std::string flow_descriptor{std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
                 mxl::lib::FlowParser descriptor_parser{flow_descriptor};
+
+                if (descriptor_parser.get<std::string>("interlace_mode") != "progressive")
+                {
+                    throw std::invalid_argument{"This application does not support interlaced flows."};
+                }
 
                 auto frame_rate = descriptor_parser.getGrainRate();
 
