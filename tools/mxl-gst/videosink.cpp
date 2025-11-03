@@ -141,11 +141,11 @@ namespace
         void pushSample(GstBuffer* buffer, std::uint64_t now) final
         {
             GST_BUFFER_PTS(buffer) = now - _gstBaseTime;
-            auto gstPlayerTime = gst_clock_get_time(gst_pipeline_get_clock(GST_PIPELINE(_pipeline))) - _gstBaseTime;
-            MXL_INFO("GstPlayerTime -> {} PTS -> {} diff -> {}",
-                gstPlayerTime,
-                GST_BUFFER_PTS(buffer),
-                (int64_t)gstPlayerTime - (int64_t)GST_BUFFER_PTS(buffer));
+            // auto gstPlayerTime = gst_clock_get_time(gst_pipeline_get_clock(GST_PIPELINE(_pipeline))) - _gstBaseTime;
+            // MXL_INFO("GstPlayerTime -> {} PTS -> {} diff -> {}",
+            //     gstPlayerTime,
+            //     GST_BUFFER_PTS(buffer),
+            //     (int64_t)gstPlayerTime - (int64_t)GST_BUFFER_PTS(buffer));
 
             int ret;
             g_signal_emit_by_name(_appsrc, "push-buffer", buffer, &ret);
@@ -204,9 +204,10 @@ namespace
                 "appsrc name=audioappsrc is-live=true ! "
                 "audio/x-raw,format=F32LE,layout=non-interleaved,channels={},rate=48000 ! "
                 "audioconvert mix-matrix={} !"
-                "autoaudiosink",
+                "autoaudiosink name=autoaudiosink ts-offset={}",
                 _config.channelCount,
-                generateMixMatrix());
+                generateMixMatrix(),
+                100e6);
 
             MXL_INFO("Generating following Audio gsteamer pipeline -> {}", pipelineDesc);
 
@@ -223,6 +224,11 @@ namespace
             if (_appsrc == nullptr)
             {
                 throw std::runtime_error("Gstreamer: 'appsink' could not be found in the pipeline.");
+            }
+            _autoaudiosink = gst_bin_get_by_name(GST_BIN(_pipeline), "autoaudiosink");
+            if (_autoaudiosink == nullptr)
+            {
+                throw std::runtime_error("Gstreamer: 'autoaudiosink' could not be found in the pipeline.");
             }
 
             auto caps = gstCapsFromAudioConfig(_config);
@@ -301,10 +307,10 @@ namespace
 
         void pushSample(GstBuffer* buffer, std::uint64_t now) final
         {
-            GST_BUFFER_PTS(buffer) = now - _mxlClockOffset;
+            GST_BUFFER_PTS(buffer) = now - _mxlClockOffset + (1e9 * _config.nbSamplesPerBatch / 48000); // 10e6;
 
             auto gstPlayerTime = gst_clock_get_time(gst_pipeline_get_clock(GST_PIPELINE(_pipeline))) - _mxlClockOffset;
-            MXL_INFO("GstPlayerTime -> {} PTS -> {} diff -> {}",
+            MXL_INFO("GstPlayerTime -> {} PTS -> {}  diff -> {}",
                 gstPlayerTime,
                 GST_BUFFER_PTS(buffer),
                 (int64_t)gstPlayerTime - (int64_t)GST_BUFFER_PTS(buffer));
@@ -323,6 +329,7 @@ namespace
     private:
         GstElement* _pipeline{nullptr};
         GstElement* _appsrc{nullptr};
+        GstElement* _autoaudiosink{nullptr};
 
         std::uint64_t _mxlClockOffset{0};
     };
