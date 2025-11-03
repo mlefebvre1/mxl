@@ -307,7 +307,7 @@ namespace
 
         void pushSample(GstBuffer* buffer, std::uint64_t now) final
         {
-            GST_BUFFER_PTS(buffer) = now - _mxlClockOffset + (1e9 * _config.nbSamplesPerBatch / 48000); // 10e6;
+            GST_BUFFER_PTS(buffer) = now - _mxlClockOffset + (2e9 * _config.nbSamplesPerBatch / 48000); // 10e6;
 
             auto gstPlayerTime = gst_clock_get_time(gst_pipeline_get_clock(GST_PIPELINE(_pipeline))) - _mxlClockOffset;
             MXL_INFO("GstPlayerTime -> {} PTS -> {}  diff -> {}",
