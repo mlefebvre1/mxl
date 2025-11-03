@@ -90,16 +90,17 @@ namespace
         void setup()
         {
             auto pipelineDesc = fmt::format(
-                "appsrc name=videoappsrc ! "
+                "appsrc name=videoappsrc is-live=true ! "
                 "video/x-raw,format=v210,width={},height={},framerate={}/{} !"
                 "videoconvert ! "
                 "videoscale ! "
                 "queue ! "
-                "autovideosink",
+                "autovideosink ts-offset={}",
                 _config.frame_width,
                 _config.frame_height,
                 _config.frame_rate.numerator,
-                _config.frame_rate.denominator);
+                _config.frame_rate.denominator,
+                0);
 
             MXL_INFO("Generating following Video gsteamer pipeline -> {}", pipelineDesc);
 
@@ -133,19 +134,13 @@ namespace
         {
             // Start playing
             gst_element_set_state(_pipeline, GST_STATE_PLAYING);
-            auto baseTime = gst_element_get_base_time(_pipeline);
-            _gstBaseTime = mxlGetTime() - baseTime;
-            MXL_INFO("Video pipeline base time: {} ns, MXL clock offset: {} ns", baseTime, _gstBaseTime);
+            _gstBaseTime = gst_element_get_base_time(_pipeline);
+            MXL_INFO("Video pipeline base time: {} ns", _gstBaseTime);
         }
 
         void pushSample(GstBuffer* buffer, std::uint64_t now) final
         {
-            GST_BUFFER_PTS(buffer) = now; //_gstBaseTime;
-
-            auto gstTime = gst_clock_get_time(gst_pipeline_get_clock(GST_PIPELINE(_pipeline)));
-            auto gstInternalTime = gst_clock_get_internal_time(gst_pipeline_get_clock(GST_PIPELINE(_pipeline)));
-
-            MXL_INFO("now time -> {}  GST time -> {}  GST internal time -> {} PTS -> {}", now, gstTime, gstInternalTime, GST_BUFFER_PTS(buffer));
+            GST_BUFFER_PTS(buffer) = now - _gstBaseTime;
 
             int ret;
             g_signal_emit_by_name(_appsrc, "push-buffer", buffer, &ret);
@@ -201,7 +196,7 @@ namespace
             MXL_INFO("Mix matrix: {}", mixMatrix);
 
             std::string pipelineDesc = fmt::format(
-                "appsrc name=audioappsrc ! "
+                "appsrc name=audioappsrc is-live=true ! "
                 "audio/x-raw,format=F32LE,layout=non-interleaved,channels={},rate=48000 ! "
                 "audioconvert mix-matrix={} !"
                 "autoaudiosink",
@@ -295,7 +290,7 @@ namespace
             // Start playing
             gst_element_set_state(_pipeline, GST_STATE_PLAYING);
             auto baseTime = gst_element_get_base_time(_pipeline);
-            _mxlClockOffset = mxlGetTime() - baseTime;
+            _mxlClockOffset = baseTime;
             MXL_INFO("Audio pipeline base time: {} ns, MXL clock offset: {} ns", baseTime, _mxlClockOffset);
         }
 
