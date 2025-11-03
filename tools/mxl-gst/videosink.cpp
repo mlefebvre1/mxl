@@ -18,6 +18,7 @@
 #include <gst/gst.h>
 #include <gst/gstclock.h>
 #include <gst/gstpipeline.h>
+#include <gst/gststructure.h>
 #include <gst/gstsystemclock.h>
 #include <mxl/flow.h>
 #include <mxl/mxl.h>
@@ -89,7 +90,7 @@ namespace
         void setup()
         {
             auto pipelineDesc = fmt::format(
-                "appsrc name=videoappsrc ! "
+                "appsrc name=videoappsrc is-live=true ! "
                 "video/x-raw,format=v210,width={},height={},framerate={}/{} !"
                 "videoconvert ! "
                 "videoscale ! "
@@ -132,9 +133,8 @@ namespace
         {
             // Start playing
             gst_element_set_state(_pipeline, GST_STATE_PLAYING);
-            auto baseTime = gst_element_get_base_time(_pipeline);
-            _gstBaseTime = mxlGetTime() - baseTime;
-            MXL_INFO("Video pipeline base time: {} ns, MXL clock offset: {} ns", baseTime, _gstBaseTime);
+            _gstBaseTime = gst_element_get_base_time(_pipeline);
+            MXL_INFO("Video pipeline base time: {} ns", _gstBaseTime);
         }
 
         void pushSample(GstBuffer* buffer, std::uint64_t now) final
@@ -195,7 +195,7 @@ namespace
             MXL_INFO("Mix matrix: {}", mixMatrix);
 
             std::string pipelineDesc = fmt::format(
-                "appsrc name=audioappsrc ! "
+                "appsrc name=audioappsrc is-live=true ! "
                 "audio/x-raw,format=F32LE,layout=non-interleaved,channels={},rate=48000 ! "
                 "audioconvert mix-matrix={} !"
                 "autoaudiosink",
@@ -288,14 +288,13 @@ namespace
         {
             // Start playing
             gst_element_set_state(_pipeline, GST_STATE_PLAYING);
-            auto baseTime = gst_element_get_base_time(_pipeline);
-            _mxlClockOffset = mxlGetTime() - baseTime;
-            MXL_INFO("Audio pipeline base time: {} ns, MXL clock offset: {} ns", baseTime, _mxlClockOffset);
+            _gstBaseTime = gst_element_get_base_time(_pipeline);
+            MXL_INFO("Audio pipeline base time: {} ns", _gstBaseTime);
         }
 
         void pushSample(GstBuffer* buffer, std::uint64_t now) final
         {
-            GST_BUFFER_PTS(buffer) = now - _mxlClockOffset;
+            GST_BUFFER_PTS(buffer) = now - _gstBaseTime;
 
             int ret;
             g_signal_emit_by_name(_appsrc, "push-buffer", buffer, &ret);
@@ -312,7 +311,7 @@ namespace
         GstElement* _pipeline{nullptr};
         GstElement* _appsrc{nullptr};
 
-        std::uint64_t _mxlClockOffset{0};
+        std::uint64_t _gstBaseTime{0};
     };
 
     class MxlReader
@@ -419,7 +418,7 @@ namespace
                 ::memcpy(map.data, payload, grainInfo.grainSize);
                 gst_buffer_unmap(buffer, &map);
 
-                gstPipeline.pushSample(buffer, mxlIndexToTimestamp(&rate, index));
+                gstPipeline.pushSample(buffer, mxlIndexToTimestamp(&rate, index + playbackOffset));
 
                 gst_buffer_unref(buffer);
                 index++;
@@ -502,7 +501,7 @@ namespace
 
                 gst_audio_buffer_unmap(&audioBuffer);
 
-                gstPipeline.pushSample(buffer, mxlIndexToTimestamp(&rate, index));
+                gstPipeline.pushSample(buffer, mxlIndexToTimestamp(&rate, index + playbackOffset));
 
                 gst_buffer_unref(buffer);
 
@@ -562,11 +561,11 @@ namespace
 
         int64_t sampleOffset;
         auto sampleOffsetOpt = app.add_option("--audio-offset", sampleOffset, "Audio offset in samples. Positive value means you are adding a delay");
-        sampleOffsetOpt->default_val(48);
+        sampleOffsetOpt->default_val(64);
 
         int64_t grainOffset;
         auto grainOffsetOpt = app.add_option("--video-offset", grainOffset, "Video offset in frames. Positive value means you are adding a delay");
-        grainOffsetOpt->default_val(0);
+        grainOffsetOpt->default_val(1);
 
         uint64_t samplesPerBatch;
         auto samplesPerBatchOpt = app.add_option("-s, --samples-per-batch",
@@ -575,6 +574,11 @@ namespace
         samplesPerBatchOpt->default_val(48);
 
         CLI11_PARSE(app, argc, argv);
+
+        if (sampleOffset < static_cast<std::int64_t>(samplesPerBatch))
+        {
+            throw std::runtime_error("Audio offset must be greater than or equal to samples per batch.");
+        }
 
         gst_init(nullptr, nullptr);
 
