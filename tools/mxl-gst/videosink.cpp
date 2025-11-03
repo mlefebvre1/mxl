@@ -16,6 +16,7 @@
 #include <glib-object.h>
 #include <gst/audio/audio.h>
 #include <gst/gst.h>
+#include <gst/gstbuffer.h>
 #include <gst/gstclock.h>
 #include <gst/gstpipeline.h>
 #include <gst/gstsystemclock.h>
@@ -139,7 +140,12 @@ namespace
 
         void pushSample(GstBuffer* buffer, std::uint64_t now) final
         {
-            GST_BUFFER_PTS(buffer) = now - _gstBaseTime;
+            GST_BUFFER_PTS(buffer) = now; //_gstBaseTime;
+
+            auto gstTime = gst_clock_get_time(gst_pipeline_get_clock(GST_PIPELINE(_pipeline)));
+            auto gstInternalTime = gst_clock_get_internal_time(gst_pipeline_get_clock(GST_PIPELINE(_pipeline)));
+
+            MXL_INFO("now time -> {}  GST time -> {}  GST internal time -> {} PTS -> {}", now, gstTime, gstInternalTime, GST_BUFFER_PTS(buffer));
 
             int ret;
             g_signal_emit_by_name(_appsrc, "push-buffer", buffer, &ret);
