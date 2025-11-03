@@ -141,6 +141,11 @@ namespace
         void pushSample(GstBuffer* buffer, std::uint64_t now) final
         {
             GST_BUFFER_PTS(buffer) = now - _gstBaseTime;
+            auto gstPlayerTime = gst_clock_get_time(gst_pipeline_get_clock(GST_PIPELINE(_pipeline))) - _gstBaseTime;
+            MXL_INFO("GstPlayerTime -> {} PTS -> {} diff -> {}",
+                gstPlayerTime,
+                GST_BUFFER_PTS(buffer),
+                (int64_t)gstPlayerTime - (int64_t)GST_BUFFER_PTS(buffer));
 
             int ret;
             g_signal_emit_by_name(_appsrc, "push-buffer", buffer, &ret);
@@ -291,12 +296,18 @@ namespace
             gst_element_set_state(_pipeline, GST_STATE_PLAYING);
             auto baseTime = gst_element_get_base_time(_pipeline);
             _mxlClockOffset = baseTime;
-            MXL_INFO("Audio pipeline base time: {} ns, MXL clock offset: {} ns", baseTime, _mxlClockOffset);
+            MXL_INFO("Audio pipeline base time: {} ns", _mxlClockOffset);
         }
 
         void pushSample(GstBuffer* buffer, std::uint64_t now) final
         {
             GST_BUFFER_PTS(buffer) = now - _mxlClockOffset;
+
+            auto gstPlayerTime = gst_clock_get_time(gst_pipeline_get_clock(GST_PIPELINE(_pipeline))) - _mxlClockOffset;
+            MXL_INFO("GstPlayerTime -> {} PTS -> {} diff -> {}",
+                gstPlayerTime,
+                GST_BUFFER_PTS(buffer),
+                (int64_t)gstPlayerTime - (int64_t)GST_BUFFER_PTS(buffer));
 
             int ret;
             g_signal_emit_by_name(_appsrc, "push-buffer", buffer, &ret);
