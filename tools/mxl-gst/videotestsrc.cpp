@@ -555,7 +555,7 @@ int main(int argc, char** argv)
 
     uint64_t samplesPerBatch;
     auto samplesPerBatchOpt = app.add_option("-s, --samples-per-batch", samplesPerBatch, "Number of audio samples per batch");
-    samplesPerBatchOpt->default_val(48);
+    samplesPerBatchOpt->default_val(512);
 
     int64_t audioOffset;
     auto audioOffsetOpt = app.add_option(
