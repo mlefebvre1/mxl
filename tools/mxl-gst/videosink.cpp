@@ -45,6 +45,7 @@ namespace
         mxlRational rate;
         std::size_t channelCount;
         std::size_t nbSamplesPerBatch;
+        std::int64_t offset;
         std::vector<size_t> spkrEnabled;
     };
 
@@ -53,6 +54,7 @@ namespace
         uint64_t frame_width;
         uint64_t frame_height;
         mxlRational frame_rate;
+        std::int64_t offset;
     };
 
     class GstreamerPipeline
@@ -95,11 +97,12 @@ namespace
                 "videoconvert ! "
                 "videoscale ! "
                 "queue ! "
-                "autovideosink",
+                "autovideosink ts-offset={}",
                 _config.frame_width,
                 _config.frame_height,
                 _config.frame_rate.numerator,
-                _config.frame_rate.denominator);
+                _config.frame_rate.denominator,
+                _config.offset);
 
             MXL_INFO("Generating following Video gsteamer pipeline -> {}", pipelineDesc);
 
@@ -198,9 +201,10 @@ namespace
                 "appsrc name=audioappsrc is-live=true ! "
                 "audio/x-raw,format=F32LE,layout=non-interleaved,channels={},rate=48000 ! "
                 "audioconvert mix-matrix={} !"
-                "autoaudiosink",
+                "autoaudiosink ts-offset={}",
                 _config.channelCount,
-                generateMixMatrix());
+                generateMixMatrix(),
+                _config.offset);
 
             MXL_INFO("Generating following Audio gsteamer pipeline -> {}", pipelineDesc);
 
@@ -349,21 +353,21 @@ namespace
             }
         }
 
-        int run(GstreamerPipeline& gstPipeline, std::int64_t playbackOffset)
+        int run(GstreamerPipeline& gstPipeline, std::int64_t readDelay)
         {
             gstPipeline.start();
 
             if (mxlIsDiscreteDataFormat(_flowInfo.common.format))
             {
-                return runDiscreteFlow(dynamic_cast<GstreamerVideoPipeline&>(gstPipeline), _flowInfo.discrete.grainRate, playbackOffset);
+                return runDiscreteFlow(dynamic_cast<GstreamerVideoPipeline&>(gstPipeline), _flowInfo.discrete.grainRate, readDelay);
             }
             else
             {
-                return runContinuousFlow(dynamic_cast<GstreamerAudioPipeline&>(gstPipeline), _flowInfo.continuous.sampleRate, playbackOffset);
+                return runContinuousFlow(dynamic_cast<GstreamerAudioPipeline&>(gstPipeline), _flowInfo.continuous.sampleRate, readDelay);
             }
         }
 
-        int runDiscreteFlow(GstreamerVideoPipeline& gstPipeline, mxlRational const& rate, std::int64_t playbackOffset)
+        int runDiscreteFlow(GstreamerVideoPipeline& gstPipeline, mxlRational const& rate, std::int64_t readDelay)
         {
             MXL_INFO("Starting discrete flow reading at rate {}/{}", rate.numerator, rate.denominator);
 
@@ -374,7 +378,7 @@ namespace
                 mxlGrainInfo grainInfo;
                 uint8_t* payload;
 
-                auto requestedIndex = index - playbackOffset;
+                auto requestedIndex = index - readDelay;
                 auto ret = mxlFlowReaderGetGrain(_reader, requestedIndex, timeoutNs, &grainInfo, &payload);
                 if (ret == MXL_ERR_OUT_OF_RANGE_TOO_EARLY)
                 {
@@ -418,7 +422,7 @@ namespace
                 ::memcpy(map.data, payload, grainInfo.grainSize);
                 gst_buffer_unmap(buffer, &map);
 
-                gstPipeline.pushSample(buffer, mxlIndexToTimestamp(&rate, index + playbackOffset));
+                gstPipeline.pushSample(buffer, mxlIndexToTimestamp(&rate, index));
 
                 gst_buffer_unref(buffer);
                 index++;
@@ -427,7 +431,7 @@ namespace
             return 0;
         }
 
-        int runContinuousFlow(GstreamerAudioPipeline& gstPipeline, mxlRational const& rate, std::int64_t playbackOffset)
+        int runContinuousFlow(GstreamerAudioPipeline& gstPipeline, mxlRational const& rate, std::int64_t readDelay)
         {
             MXL_INFO("Starting continuous flow reading at rate {}/{}", rate.numerator, rate.denominator);
 
@@ -438,7 +442,7 @@ namespace
 
             while (!g_exit_requested)
             {
-                auto requestedIndex = index - playbackOffset;
+                auto requestedIndex = index - readDelay;
 
                 auto ret = mxlFlowReaderGetSamples(_reader, requestedIndex, windowSize, &payload);
                 if (ret == MXL_ERR_OUT_OF_RANGE_TOO_EARLY)
@@ -501,7 +505,7 @@ namespace
 
                 gst_audio_buffer_unmap(&audioBuffer);
 
-                gstPipeline.pushSample(buffer, mxlIndexToTimestamp(&rate, index + playbackOffset));
+                gstPipeline.pushSample(buffer, mxlIndexToTimestamp(&rate, index));
 
                 gst_buffer_unref(buffer);
 
@@ -559,26 +563,35 @@ namespace
         auto listenChanOpt = app.add_option("-l, --listen-channels", listenChannels, "Audio channels to listen");
         listenChanOpt->default_val(std::vector<std::size_t>{0, 1});
 
-        int64_t sampleOffset;
-        auto sampleOffsetOpt = app.add_option("--audio-offset", sampleOffset, "Audio offset in samples. Positive value means you are adding a delay");
-        sampleOffsetOpt->default_val(64);
+        int64_t audioOffset;
+        auto audioOffsetOpt = app.add_option(
+            "--audio-offset", audioOffset, "Audio playback offset in nanoseconds. Positive value means you are delaying the playback");
+        audioOffsetOpt->default_val(150'000'000);
 
-        int64_t grainOffset;
-        auto grainOffsetOpt = app.add_option("--video-offset", grainOffset, "Video offset in frames. Positive value means you are adding a delay");
-        grainOffsetOpt->default_val(1);
+        int64_t videoOffset;
+        auto videoOffsetOpt = app.add_option(
+            "--video-offset", videoOffset, "Video plaback offset in nanoseconds. Positive value means you are delaying the playback");
+        videoOffsetOpt->default_val(150'000'000);
+
+        int64_t audioReadDelay;
+        auto audioReadDelayOpt = app.add_option("--audio-read-delay",
+            audioReadDelay,
+            "How far in the past/future samples are read (in audio samples). Positive value means you are delaying the read");
+        audioReadDelayOpt->default_val(768);
+
+        int64_t videoReadDelay;
+        auto videoReadDelayOpt = app.add_option("--video-read-delay",
+            videoReadDelay,
+            "How far in the past/future samples are read (in video frames). Positive value means you are delaying the read");
+        videoReadDelayOpt->default_val(1);
 
         uint64_t samplesPerBatch;
         auto samplesPerBatchOpt = app.add_option("-s, --samples-per-batch",
             samplesPerBatch,
             "Number of audio samples per batch. Should be the same or bigger than the videotestsrc setting.");
-        samplesPerBatchOpt->default_val(48);
+        samplesPerBatchOpt->default_val(512);
 
         CLI11_PARSE(app, argc, argv);
-
-        if (sampleOffset < static_cast<std::int64_t>(samplesPerBatch))
-        {
-            throw std::runtime_error("Audio offset must be greater than or equal to samples per batch.");
-        }
 
         gst_init(nullptr, nullptr);
 
@@ -603,10 +616,11 @@ namespace
                         .frame_width = static_cast<std::uint64_t>(parser.get<double>("frame_width")),
                         .frame_height = static_cast<std::uint64_t>(parser.get<double>("frame_height")),
                         .frame_rate = parser.getGrainRate(),
+                        .offset = videoOffset,
                     };
 
                     auto pipeline = GstreamerVideoPipeline(videoConfig);
-                    reader.run(pipeline, grainOffset);
+                    reader.run(pipeline, videoReadDelay);
 
                     MXL_INFO("Video pipeline finished");
                     return 0;
@@ -627,11 +641,12 @@ namespace
                         .rate = parser.getGrainRate(),
                         .channelCount = parser.getChannelCount(),
                         .nbSamplesPerBatch = samplesPerBatch,
+                        .offset = audioOffset,
                         .spkrEnabled = listenChannels,
                     };
 
                     auto pipeline = GstreamerAudioPipeline(audioConfig);
-                    reader.run(pipeline, sampleOffset);
+                    reader.run(pipeline, audioReadDelay);
 
                     MXL_INFO("Audio pipeline finished");
                     return 0;
