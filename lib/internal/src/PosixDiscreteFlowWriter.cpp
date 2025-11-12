@@ -41,6 +41,18 @@ namespace mxl::lib
         throw std::runtime_error("No open flow.");
     }
 
+    mxlStatus PosixDiscreteFlowWriter::getGrainInfo(std::uint64_t in_index, mxlGrainInfo* out_grainInfo)
+    {
+        if (_flowData)
+        {
+            auto offset = in_index % _flowData->flowInfo()->config.discrete.grainCount;
+            auto const grain = _flowData->grainAt(offset);
+            *out_grainInfo = grain->header.info;
+            return MXL_STATUS_OK;
+        }
+        return MXL_ERR_UNKNOWN;
+    }
+
     mxlStatus PosixDiscreteFlowWriter::openGrain(std::uint64_t in_index, mxlGrainInfo* out_grainInfo, std::uint8_t** out_payload)
     {
         if (_flowData)

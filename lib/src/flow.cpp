@@ -404,6 +404,29 @@ mxlStatus mxlFlowReaderGetGrainNonBlocking(mxlFlowReader reader, uint64_t index,
 
 extern "C"
 MXL_EXPORT
+mxlStatus mxlFlowWriterGetGrainInfo(mxlFlowWriter writer, uint64_t index, mxlGrainInfo* grainInfo)
+{
+    try
+    {
+        if (grainInfo != nullptr)
+        {
+            if (auto const cppWriter = dynamic_cast<DiscreteFlowWriter*>(to_FlowWriter(writer)); cppWriter != nullptr)
+            {
+                return cppWriter->getGrainInfo(index, grainInfo);
+            }
+
+            return MXL_ERR_INVALID_FLOW_WRITER;
+        }
+        return MXL_ERR_INVALID_ARG;
+    }
+    catch (...)
+    {
+        return MXL_ERR_UNKNOWN;
+    }
+}
+
+extern "C"
+MXL_EXPORT
 mxlStatus mxlFlowWriterOpenGrain(mxlFlowWriter writer, uint64_t index, mxlGrainInfo* grainInfo, uint8_t** payload)
 {
     try

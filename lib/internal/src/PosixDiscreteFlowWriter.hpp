@@ -17,7 +17,7 @@ namespace mxl::lib
     ///
     /// Implementation of a FlowWriter based on POSIX shared memory mapping.
     ///
-    class PosixDiscreteFlowWriter : public DiscreteFlowWriter
+    class PosixDiscreteFlowWriter final : public DiscreteFlowWriter
     {
     public:
         ///
@@ -33,12 +33,16 @@ namespace mxl::lib
         /// The flow writer must first open the flow before invoking this method.
         ///
         [[nodiscard]]
-        FlowData const& getFlowData() const final;
+        virtual FlowData const& getFlowData() const override;
 
         ///
         /// \see FlowWriter::getFlowInfo
         ///
         virtual mxlFlowInfo getFlowInfo() override;
+
+        ///
+        /// \see DiscreteFlowWriter::getGrainInfo
+        virtual mxlStatus getGrainInfo(std::uint64_t in_index, mxlGrainInfo* out_grainInfo) override;
 
         ///
         /// \see DiscreteFlowWriter::openGrain

@@ -289,6 +289,21 @@ extern "C"
     mxlStatus mxlFlowReaderGetGrainNonBlocking(mxlFlowReader reader, uint64_t index, mxlGrainInfo* grain, uint8_t** payload);
 
     /**
+     * Get grain info for a given index. This is used to inspect the grain info without opening the grain for mutation.
+     *
+     * \param[in] writer A valid flow writer
+     * \param[in] index The index of the grain to obtain.
+     * \param[out] mxlGrainInfo The requested mxlGrainInfo structure.
+     * \return The result code. \see mxlStatus
+     * \note Please note that this function can only be called on writers that
+     *      operate on discrete flows. Any attempt to call this function on a
+     *      writer that operates on another type of flow will result in an
+     *      error.
+     */
+    MXL_EXPORT
+    mxlStatus mxlFlowWriterGetGrainInfo(mxlFlowWriter writer, uint64_t index, mxlGrainInfo* mxlGrainInfo);
+
+    /**
      * Open a grain for mutation.  The flow writer will remember which index is currently opened. Before opening a new grain
      * for mutation, the user must either cancel the mutation using mxlFlowWriterCancelGrain or mxlFlowWriterCommitGrain.
      *
