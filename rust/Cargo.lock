@@ -269,11 +269,22 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "dlopen2",
+ "mxl-proc-macro",
  "mxl-sys",
  "thiserror",
  "tracing",
  "tracing-subscriber",
  "uuid",
+]
+
+[[package]]
+name = "mxl-proc-macro"
+version = "0.1.0"
+dependencies = [
+ "mxl-sys",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

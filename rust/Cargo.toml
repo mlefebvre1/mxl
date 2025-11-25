@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 [workspace]
-members = ["mxl", "mxl-sys"]
+members = ["mxl", "mxl-proc-macro", "mxl-sys"]
 
 resolver = "2"
 

@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::env;
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::path::PathBuf;
 
 #[cfg(debug_assertions)]
@@ -82,7 +84,23 @@ fn main() {
         .unwrap();
 
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+    let bindings_path = out_path.join("bindings.rs");
+
     bindings
-        .write_to_file(out_path.join("bindings.rs"))
+        .write_to_file(&bindings_path)
         .expect("Could not write bindings");
+
+    // Save where the bindings.rs are
+    OpenOptions::new()
+        .append(true)
+        .open(&bindings_path)
+        .unwrap()
+        .write_all(
+            format!(
+                "pub const BINDINGS_PATH: &str = \"{}\";",
+                bindings_path.display()
+            )
+            .as_bytes(),
+        )
+        .unwrap();
 }
