@@ -152,7 +152,7 @@ fn init_mxl_reader(settings: &MutexGuard<'_, Settings>) -> Result<FlowReader, gs
             Ok(reader) => break Ok(reader),
             Err(mxl::Error::FlowNotFound) => {
                 if !warned {
-                    eprintln!("Waiting for flow to be created...");
+                    tracing::warn!("Waiting for flow to be created...");
                     warned = true;
                 }
                 std::thread::sleep(Duration::from_millis(50));

@@ -10,7 +10,7 @@ use gst::prelude::*;
 use gstreamer as gst;
 use tracing::trace;
 
-const GET_GRAIN_TIMEOUT: Duration = Duration::from_secs(5);
+const GET_GRAIN_TIMEOUT: Duration = Duration::from_secs(1);
 pub(super) const MXL_GRAIN_FLAG_INVALID: u32 = 0x00000001;
 
 pub(crate) fn create_video(src: &MxlSrc, state: &mut State) -> Result<CreateState, gst::FlowError> {
@@ -42,7 +42,7 @@ pub(crate) fn create_video(src: &MxlSrc, state: &mut State) -> Result<CreateStat
         next_frame_index = current_index;
     } else if next_frame_index > current_index {
         let frames_ahead = next_frame_index - current_index;
-        tracing::error!(
+        tracing::debug!(
             index=%next_frame_index, head_index=%current_index, ahead=%frames_ahead,
             "Ahead of current index.",
         );
