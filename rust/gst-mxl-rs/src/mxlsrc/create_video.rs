@@ -34,16 +34,17 @@ pub(crate) fn create_video(src: &MxlSrc, state: &mut State) -> Result<CreateStat
     let mut next_frame_index = initial_info.mxl_index + video_state.frame_counter;
     if next_frame_index < current_index {
         let missed_frames = current_index - next_frame_index;
-        trace!(
-            "Skipped frames! next_frame_index={} < head_index={} (lagging {})",
-            next_frame_index, current_index, missed_frames
+        tracing::error!(
+            next_frame_index= %next_frame_index, head_index=%current_index, lagging=%missed_frames,
+            "Skipped frames. Resynchronizing",
         );
+
         next_frame_index = current_index;
     } else if next_frame_index > current_index {
         let frames_ahead = next_frame_index - current_index;
-        trace!(
-            "index={} > head_index={} (ahead {} frames)",
-            next_frame_index, current_index, frames_ahead
+        tracing::error!(
+            index=%next_frame_index, head_index=%current_index, ahead=%frames_ahead,
+            "Ahead of current index.",
         );
     }
 
@@ -72,7 +73,7 @@ pub(crate) fn create_video(src: &MxlSrc, state: &mut State) -> Result<CreateStat
             Ok(r) => r,
 
             Err(err) => {
-                trace!("error: {err}");
+                tracing::error!(error= %err, "Error while geting complete grain.");
                 return Ok(CreateState::NoDataCreated);
             }
         };
