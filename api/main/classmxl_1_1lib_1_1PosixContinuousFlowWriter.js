@@ -15,9 +15,11 @@ var classmxl_1_1lib_1_1PosixContinuousFlowWriter =
     [ "signalCompletedBatch", "classmxl_1_1lib_1_1PosixContinuousFlowWriter.html#a27b3cf77d1c3ad56bd6bfaf39fc997fa", null ],
     [ "_bufferLength", "classmxl_1_1lib_1_1PosixContinuousFlowWriter.html#ae4c98e2a0e0165982ed98ff716ea3293", null ],
     [ "_channelCount", "classmxl_1_1lib_1_1PosixContinuousFlowWriter.html#ae5a1179310ff956981dd70f61ff1b011", null ],
+    [ "_currentCount", "classmxl_1_1lib_1_1PosixContinuousFlowWriter.html#a185e36c4e044c0a33dcd25ef2135d24f", null ],
     [ "_currentIndex", "classmxl_1_1lib_1_1PosixContinuousFlowWriter.html#a70f2a79aa1b04a400e104592106617b9", null ],
     [ "_earlySyncThreshold", "classmxl_1_1lib_1_1PosixContinuousFlowWriter.html#a7737f209a829764cdf899175d449d3c9", null ],
     [ "_flowData", "classmxl_1_1lib_1_1PosixContinuousFlowWriter.html#ad51f16d4a677a962143ba42ebf04b11a", null ],
+    [ "_lastCommittedIndex", "classmxl_1_1lib_1_1PosixContinuousFlowWriter.html#a46d8ec3049a3616280b820a72172c006", null ],
     [ "_lastSyncSampleBatch", "classmxl_1_1lib_1_1PosixContinuousFlowWriter.html#ae9f0adae55d0834f76fc9e9bc57ed1fb", null ],
     [ "_syncBatchSize", "classmxl_1_1lib_1_1PosixContinuousFlowWriter.html#a82827f34d32176dea3eae591e42d64c1", null ]
 ];
